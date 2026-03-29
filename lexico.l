@@ -33,7 +33,9 @@ ID {LETRA}({LETRA}|{NUM})*
 
 {NUM}		{ yylval.label = yytext; return TK_NUM; }
 {ID}		{ yylval.label = yytext; return TK_ID; }
+{REAL}		{ yylval.label = yytext; return TK_REAL; }
+{CHAR}		{ yylval.label = yytext; return TK_CHAR; }
 
-.			{ *yytext; }
+.			{ printf("Caractere nao reconhecido: %s\n", yytext); }
 
 %%

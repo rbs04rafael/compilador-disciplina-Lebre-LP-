@@ -20,13 +20,14 @@ void yyerror(string);
 string gentempcode();
 %}
 
-%token TK_NUM
+%token TK_NUM TK_REAL TK_CHAR
 %token TK_MAIN TK_ID TK_TIPO_INT
-%token TK_FIM TK_ERROR
 
 %start S
 
-%left '+'
+%right '='
+%left '+' '-'
+%left '*' '/'
 
 %%
 
@@ -34,8 +35,8 @@ S 			: TK_TIPO_INT TK_MAIN '(' ')' BLOCO
 			{
 				string codigo = "/*Compilador FOCA*/\n"
 								"#include <iostream>\n"
-								"#include<string.h>\n"
-								"#include<stdio.h>\n"
+								"#include <string.h>\n"
+								"#include <stdio.h>\n"
 								"int main(void) {\n";
 								
 				codigo += $5.traducao;

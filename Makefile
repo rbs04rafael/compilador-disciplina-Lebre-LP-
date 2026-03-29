@@ -1,14 +1,15 @@
-SCANNER := lex
+SCANNER := flex
 SCANNER_PARAMS := lexico.l
-PARSER := yacc
-PARSER_PARAMS := -d sintatico.y
+PARSER := bison
+PARSER_PARAMS := -d --yacc sintatico.y
+CXXFLAGS := -Wno-free-nonheap-object
 
 all: glf translate
 
 compile: glf
 
 glf: y.tab.c lex.yy.c
-		g++ -o glf y.tab.c
+		g++ $(CXXFLAGS) -o glf y.tab.c
 
 lex.yy.c: lexico.l
 		$(SCANNER) $(SCANNER_PARAMS)
