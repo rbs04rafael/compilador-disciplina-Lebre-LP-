@@ -22,10 +22,11 @@ void yyerror(string);
 string gentempcode();
 %}
 
-%token TK_NUM
+%token TK_NUM TK_ID
 
 %start S
 
+%right '='
 %left '+' '-'
 %left '*' '/'
 
@@ -72,6 +73,16 @@ E 			: E '+' E
 			{
 				$$.label = $2.label;
 				$$.traducao = $2.traducao;
+			}
+			| TK_ID '=' E
+			{
+				$$.label = $1.label;
+				$$.traducao = $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";
+			}
+			| TK_ID
+			{
+				$$.label = gentempcode();
+				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
 			| TK_NUM
 			{

@@ -6,6 +6,7 @@
 
 ESPACO [ \t]
 DIGITO [0-9]
+ID [a-zA-Z_][a-zA-Z0-9]*
 
 DELIM {ESPACO}+
 NUM {DIGITO}+
@@ -16,9 +17,11 @@ NUM {DIGITO}+
 
 {DELIM} 	{}
 
-[-+*/()]			{ return *yytext; }
+[-+*/()=]			{ return *yytext; }
 
 {NUM}		{ yylval.label = yytext; return TK_NUM; }
+
+{ID}        { yylval.label = yytext; return TK_ID; }
 
 .			{ fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
 
