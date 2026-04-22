@@ -1,6 +1,7 @@
 %{
 #include <iostream>
 #include <string>
+#include <map>
 
 #define YYSTYPE atributos
 
@@ -10,6 +11,7 @@ int var_temp_qnt;
 int linha = 1;
 string codigo_gerado;
 string declaracoes;
+map<string,string> tabela_simbolos; //é global para q tds regras possam acessar
 
 struct atributos
 {
@@ -22,7 +24,7 @@ void yyerror(string);
 string gentempcode();
 %}
 
-%token TK_NUM TK_ID
+%token TK_NUM TK_ID TK_INT
 
 %start S
 
@@ -32,18 +34,30 @@ string gentempcode();
 
 %%
 
-S 			: E
+S 			: LISTA_DEC E
 			{
 				codigo_gerado = "/*Compilador FOCA*/\n"
 								"#include <stdio.h>\n"
 								"int main(void) {\n";
 				
-				codigo_gerado += declaracoes + "\n" + $1.traducao;
+				codigo_gerado += declaracoes + "\n" + $2.traducao;
 
 				codigo_gerado += "\treturn 0;"
 							"\n}\n";
 			}
 			;
+
+LISTA_DEC	: LISTA_DEC DEC
+			| /* vazio (epsilon) */
+			;
+
+DEC 		: TK_INT TK_ID ';'
+			{
+				string temp = gentempcode();
+				tabela_simbolos[$2.label] = temp;
+			}
+			;
+
 
 E 			: E '+' E
 			{
@@ -76,13 +90,26 @@ E 			: E '+' E
 			}
 			| TK_ID '=' E
 			{
-				$$.label = $1.label;
-				$$.traducao = $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";
+				if(tabela_simbolos.count($1.label)){
+					string temp = tabela_simbolos[$1.label];
+					$$.label = temp;
+					$$.traducao = $3.traducao + "\t" + temp + " = " + $3.label + ";\n";
+				}
+				else{
+					$$.label = $1.label;
+					$$.traducao = $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";	
+				}
 			}
 			| TK_ID
 			{
-				$$.label = gentempcode();
-				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+				if(tabela_simbolos.count($1.label)){
+					$$.label = tabela_simbolos[$1.label];
+					$$.traducao = "";
+				}
+				else{
+					$$.label = gentempcode();
+					$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";	
+				}
 			}
 			| TK_NUM
 			{
