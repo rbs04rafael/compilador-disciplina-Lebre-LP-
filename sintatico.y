@@ -31,7 +31,8 @@ void yyerror(string);
 string gentempcode();
 %}
 
-%token TK_NUM TK_ID TK_INT TK_FLOAT
+%token TK_NUM TK_ID TK_INT TK_FLOAT TK_CHAR TK_CHARLITERAL TK_BOOL TK_BOOLLIT
+
 
 %start S
 
@@ -41,23 +42,36 @@ string gentempcode();
 
 %%
 
-S 			: LISTA_DEC E
-			{
-				codigo_gerado = "/*Compilador FOCA*/\n"
-								"#include <stdio.h>\n"
-								"int main(void) {\n";
-				
-				codigo_gerado += declaracoes + "\n" + $2.traducao;
+S           : LISTA_STMT
+            {
+                codigo_gerado = "/*Compilador FOCA*/\n"
+                                "#include <stdio.h>\n"
+                                "int main(void) {\n";
 
-				codigo_gerado += "\treturn 0;"
-							"\n}\n";
-			}
-			;
+                codigo_gerado += declaracoes + "\n" + $1.traducao;
 
-LISTA_DEC	: LISTA_DEC DEC
-			| /* vazio (epsilon) */
-			;
+                codigo_gerado += "\treturn 0;"
+                            "\n}\n";
+            }
+            ;
 
+LISTA_STMT  : LISTA_STMT DEC
+            {
+                $$.traducao = $1.traducao;
+            }
+            | LISTA_STMT E ';'
+            {
+                $$.traducao = $1.traducao + $2.traducao;
+            }
+            | LISTA_STMT E
+            {
+                $$.traducao = $1.traducao + $2.traducao;
+            }
+            | /* vazio */
+            {
+                $$.traducao = "";
+            }
+            ;
 DEC 		: TK_INT TK_ID ';'
 			{
 				string temp = gentempcode();
@@ -70,10 +84,21 @@ DEC 		: TK_INT TK_ID ';'
 				tabela_simbolos[$2.label] = {temp, "float"};
 				declaracoes += "\tfloat " + temp + ";\n";
 			}
-
+			|
+			TK_CHAR TK_ID ';'
+			{
+				string temp = gentempcode();
+				tabela_simbolos[$2.label] = {temp, "char"};
+				declaracoes += "\tchar " + temp + ";\n";
+			
+			}
+			| TK_BOOL TK_ID ';'
+			{	
+				string temp = gentempcode();
+				tabela_simbolos[$2.label] = {temp, "int"};
+				declaracoes += "\tint " + temp + ";\n";
+			}
 			;
-
-
 E 			: E '+' E
 			{
 				$$.label = gentempcode();
@@ -172,6 +197,18 @@ E 			: E '+' E
         			declaracoes += "\tint " + $$.label + ";\n";
 
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+			}
+			| TK_CHARLITERAL
+			{
+				$$.label = $1.label;
+				$$.tipo = "char";
+				$$.traducao = ""; 
+			}
+			| TK_BOOLLIT
+			{
+				$$.label = $1.label;
+				$$.tipo = "int";
+				$$.traducao = "";
 			}
 			;
 
