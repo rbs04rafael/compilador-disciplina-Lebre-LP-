@@ -31,18 +31,20 @@ void yyerror(string);
 string gentempcode();
 %}
 
-%token TK_NUM TK_ID TK_INT TK_FLOAT TK_CHAR TK_CHARLITERAL TK_BOOL TK_BOOLLIT
-
+%token TK_NUM TK_CHARLITERAL TK_BOOLLIT
+%token TK_INT TK_FLOAT TK_CHAR TK_BOOL TK_ID
+%token TK_MAI TK_MEI  TK_II TK_DF
 
 %start S
 
 %right '='
+%left TK_II TK_DF '<' '>' TK_MEI TK_MAI
 %left '+' '-'
 %left '*' '/'
 
 %%
 
-S           : LISTA_STMT
+S           : LISTA_DEC
             {
                 codigo_gerado = "/*Compilador FOCA*/\n"
                                 "#include <stdio.h>\n"
@@ -55,15 +57,15 @@ S           : LISTA_STMT
             }
             ;
 
-LISTA_STMT  : LISTA_STMT DEC
+LISTA_DEC  : LISTA_DEC DEC
             {
                 $$.traducao = $1.traducao;
             }
-            | LISTA_STMT E ';'
+            | LISTA_DEC E ';'
             {
                 $$.traducao = $1.traducao + $2.traducao;
             }
-            | LISTA_STMT E
+            | LISTA_DEC E
             {
                 $$.traducao = $1.traducao + $2.traducao;
             }
@@ -99,6 +101,7 @@ DEC 		: TK_INT TK_ID ';'
 				declaracoes += "\tint " + temp + ";\n";
 			}
 			;
+
 E 			: E '+' E
 			{
 				$$.label = gentempcode();
@@ -152,6 +155,60 @@ E 			: E '+' E
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " / " + $3.label + ";\n";
 			}
+			| E '<' E
+			{
+				$$.label = gentempcode();
+				$$.tipo = "int";
+				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+				$$.traducao = $1.traducao + $3.traducao + 
+				"\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n";
+			}
+			| E '>' E
+			{
+				$$.label = gentempcode();
+				$$.tipo = "int";
+				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+				$$.traducao = $1.traducao + $3.traducao + 
+				"\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n";
+			}
+			| E TK_MAI E
+			{
+				$$.label = gentempcode();
+				$$.tipo = "int";
+				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+				$$.traducao = $1.traducao + $3.traducao + 
+				"\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n";
+			}
+			| E TK_MEI E
+			{
+				$$.label = gentempcode();
+				$$.tipo = "int";
+				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+				$$.traducao = $1.traducao + $3.traducao + 
+				"\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n";
+			}
+			| E TK_DF E
+			{
+				$$.label = gentempcode();
+				$$.tipo = "int";
+				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+				$$.traducao = $1.traducao + $3.traducao + 
+				"\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n";
+			}
+			| E TK_II E
+			{
+				$$.label = gentempcode();
+				$$.tipo = "int";
+				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+				$$.traducao = $1.traducao + $3.traducao + 
+				"\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n";
+			}
 			| '(' E ')'
 			{
 				$$.label = $2.label;
@@ -190,12 +247,7 @@ E 			: E '+' E
 			{
 				$$.label = gentempcode();
 				$$.tipo = $1.tipo;
-
-				if ($$.tipo == "float") 
-       				 declaracoes += "\tfloat " + $$.label + ";\n";
-				else 
-        			declaracoes += "\tint " + $$.label + ";\n";
-
+				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
 			| TK_CHARLITERAL
