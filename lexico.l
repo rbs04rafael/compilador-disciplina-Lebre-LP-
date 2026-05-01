@@ -26,15 +26,18 @@ CARACTERE '{LETRA}?'
 "=="        { return TK_II; }
 "!="        { return TK_DF; }
 
-[-+*/()=;><]	{ return *yytext; }
+"&&"        { return TK_AND; }
+"||"        { return TK_OR; }
+
+[-+*/()=;><!]	{ return *yytext; }
 
 "real"      { return TK_FLOAT; }
 "inteiro"   { return TK_INT; }
 "caractere" { return TK_CHAR; }
 "logico"    { return TK_BOOL; }
 
-"true"      { yylval.label = "1"; yylval.tipo = "int"; return TK_BOOLLIT;}
-"false"     { yylval.label = "0"; yylval.tipo = "int"; return TK_BOOLLIT;}
+"true"      { yylval.label = "1"; yylval.tipo = "bool"; return TK_BOOLLIT;}
+"false"     { yylval.label = "0"; yylval.tipo = "bool"; return TK_BOOLLIT;}
 
 {REAL}      { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM;}
 {NUM}		{ yylval.label = yytext; yylval.tipo = "int"; return TK_NUM; }

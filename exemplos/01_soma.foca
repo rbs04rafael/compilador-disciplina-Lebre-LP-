@@ -1,1 +1,5 @@
-1 + 2 + 3
+logico b1;
+logico b2;
+logico R;
+
+R = b1 && !b2;

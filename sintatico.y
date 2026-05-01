@@ -17,13 +17,13 @@ struct info_var{
 	string tipo;
 };
 
-map<string, info_var> tabela_simbolos; // agora é info_var pois precisa guarda o tipo também
+map<string, info_var> tabela_simbolos; 
 
 struct atributos
 {
 	string label;
 	string traducao;
-	string tipo; // cada expressão precisa carregar o tipo com ela
+	string tipo; 
 };
 
 int yylex(void);
@@ -34,10 +34,13 @@ string gentempcode();
 %token TK_NUM TK_CHARLITERAL TK_BOOLLIT
 %token TK_INT TK_FLOAT TK_CHAR TK_BOOL TK_ID
 %token TK_MAI TK_MEI  TK_II TK_DF
+%token TK_AND TK_OR
 
 %start S
 
 %right '='
+%left TK_AND TK_OR
+%left '!'
 %left TK_II TK_DF '<' '>' TK_MEI TK_MAI
 %left '+' '-'
 %left '*' '/'
@@ -97,7 +100,7 @@ DEC 		: TK_INT TK_ID ';'
 			| TK_BOOL TK_ID ';'
 			{	
 				string temp = gentempcode();
-				tabela_simbolos[$2.label] = {temp, "int"};
+				tabela_simbolos[$2.label] = {temp, "bool"};
 				declaracoes += "\tint " + temp + ";\n";
 			}
 			;
@@ -158,8 +161,8 @@ E 			: E '+' E
 			| E '<' E
 			{
 				$$.label = gentempcode();
-				$$.tipo = "int";
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+				$$.tipo = "bool";
+				declaracoes += "\tint " + $$.label + ";\n";
 
 				$$.traducao = $1.traducao + $3.traducao + 
 				"\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n";
@@ -167,8 +170,8 @@ E 			: E '+' E
 			| E '>' E
 			{
 				$$.label = gentempcode();
-				$$.tipo = "int";
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+				$$.tipo = "bool";
+				declaracoes += "\tint " + $$.label + ";\n";
 
 				$$.traducao = $1.traducao + $3.traducao + 
 				"\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n";
@@ -176,8 +179,8 @@ E 			: E '+' E
 			| E TK_MAI E
 			{
 				$$.label = gentempcode();
-				$$.tipo = "int";
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+				$$.tipo = "bool";
+				declaracoes += "\tint " + $$.label + ";\n";
 
 				$$.traducao = $1.traducao + $3.traducao + 
 				"\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n";
@@ -185,8 +188,8 @@ E 			: E '+' E
 			| E TK_MEI E
 			{
 				$$.label = gentempcode();
-				$$.tipo = "int";
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+				$$.tipo = "bool";
+				declaracoes += "\tint " + $$.label + ";\n";
 
 				$$.traducao = $1.traducao + $3.traducao + 
 				"\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n";
@@ -194,8 +197,8 @@ E 			: E '+' E
 			| E TK_DF E
 			{
 				$$.label = gentempcode();
-				$$.tipo = "int";
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+				$$.tipo = "bool";
+				declaracoes += "\tint " + $$.label + ";\n";
 
 				$$.traducao = $1.traducao + $3.traducao + 
 				"\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n";
@@ -203,11 +206,47 @@ E 			: E '+' E
 			| E TK_II E
 			{
 				$$.label = gentempcode();
-				$$.tipo = "int";
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+				$$.tipo = "bool";
+				declaracoes += "\tint " + $$.label + ";\n";
 
 				$$.traducao = $1.traducao + $3.traducao + 
 				"\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n";
+			}
+			| E TK_AND E
+			{
+				if ($1.tipo == "bool" && $3.tipo == "bool"){
+					$$.label = gentempcode();
+					$$.tipo = "bool";
+					declaracoes += "\tint " + $$.label + ";\n";
+
+					$$.traducao = $1.traducao + $3.traducao + 
+					"\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n";
+				}else 
+					yyerror("ERRO");
+			}
+			| E TK_OR E
+			{
+				if ($1.tipo == "bool" && $3.tipo == "bool"){
+					$$.label = gentempcode();
+					$$.tipo = "bool";
+					declaracoes += "\tint " + $$.label + ";\n";
+
+					$$.traducao = $1.traducao + $3.traducao + 
+					"\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n";
+				}else 
+					yyerror("ERRO");
+			}
+			| '!'E
+			{
+				if ($2.tipo == "bool"){
+					$$.label = gentempcode();
+					$$.tipo = "bool";
+					declaracoes += "\tint " + $$.label + ";\n";
+
+					$$.traducao =  $2.traducao + 
+					"\t" + $$.label + " = !" + $2.label + ";\n";
+				}else 
+					yyerror("ERRO");
 			}
 			| '(' E ')'
 			{
