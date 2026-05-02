@@ -1,5 +1,4 @@
-logico b1;
-logico b2;
-logico R;
+real f;
+inteiro i;
 
-R = b1 && !b2;
+i = (inteiro) f + 10;

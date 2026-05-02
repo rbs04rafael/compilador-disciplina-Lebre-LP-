@@ -11,6 +11,7 @@ int var_temp_qnt;
 int linha = 1;
 string codigo_gerado;
 string declaracoes;
+int erro_count = 0; //contar se houve algum erro para não gerar código caso haja.
 
 struct info_var{
 	string temp;
@@ -54,6 +55,7 @@ string castGerar(string, string, string&); //função responsável pelo cast
 void operacoes(atributos&, atributos&, atributos&, string, string); //função responsável pelas operações artiméticas e relacionais
 void op_logicos(atributos&, atributos&, atributos&, string); //função responsável pelas operações lógicas
 bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
+bool cast_valido(string destino, string origem); //função que determina se um cast é válido ou não, usada para validar o cast explícito
 %}
 
 %token TK_NUM TK_CHARLITERAL TK_BOOLLIT
@@ -93,15 +95,12 @@ LISTA_DEC  : LISTA_DEC DEC
             {
                 $$.traducao = $1.traducao + $2.traducao;
             }
-            | LISTA_DEC E
-            {
-                $$.traducao = $1.traducao + $2.traducao;
-            }
             | /* vazio */
             {
                 $$.traducao = "";
             }
             ;
+
 DEC 		: TK_INT TK_ID ';'
 			{
 				string temp = gentempcode();
@@ -129,6 +128,83 @@ DEC 		: TK_INT TK_ID ';'
 				declaracoes += "\tint " + temp + ";\n";
 			}
 			;
+
+TIPO		: TK_INT 	{ $$.label = "int"; }
+			| TK_FLOAT 	{ $$.label = "float"; }
+			| TK_CHAR 	{ $$.label = "char"; }
+			| TK_BOOL 	{ $$.label = "bool"; }
+			;
+
+P       	: TK_NUM
+        	{
+        		$$.label = gentempcode();
+        		$$.tipo = $1.tipo;
+        		declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+        		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+        	}
+        	| TK_ID
+        	{
+        		if(tabela_simbolos.count($1.label)){
+        			auto info = tabela_simbolos[$1.label];
+        			$$.label = info.temp;
+        			$$.tipo = info.tipo;
+        			$$.traducao = "";
+        		}
+        		else{
+        			yyerror("você está tentando usar uma variável que não foi declarada");
+        		}
+        	}
+        	| TK_CHARLITERAL
+        	{
+        		$$.label = $1.label;
+        		$$.tipo = "char";
+        		$$.traducao = "";
+        	}
+        	| TK_BOOLLIT
+        	{
+        		$$.label = $1.label;
+        		$$.tipo = "bool";
+        		$$.traducao = "";
+        	}
+        	| '(' E ')'
+        	{
+        		$$.label = $2.label;
+        		$$.tipo = $2.tipo;
+        		$$.traducao = $2.traducao;
+        	}
+        	| '!' P
+        	{
+        		if ($2.tipo == "bool"){
+        			$$.label = gentempcode();
+        			$$.tipo = "bool";
+        			declaracoes += "\tint " + $$.label + ";\n";
+        			$$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n";
+        		}
+        		else{
+        			yyerror("você está fazendo operações lógicas com tipos não booleanos");
+        		}
+        	}
+			| '(' TIPO ')' P
+			{
+				if (!cast_valido($2.label, $4.tipo)){ //verifica se o cast é válido 
+					yyerror("Conversão inválida de " + $4.tipo + " para " + $2.label);
+				}
+				else{
+				string temp_original = gentempcode(); // Cria temporária para o tipo original
+				declaracoes += "\t" + $4.tipo + " " + temp_original + ";\n"; // Declara a temporária original com o tipo do E
+
+				string temp_cast = gentempcode(); // Cria temporária para o resultado do cast
+				declaracoes += "\t" + $2.label + " " + temp_cast + ";\n"; // Declara a temporária cast com o tipo do cast
+
+				$$.label = temp_cast; 
+				$$.tipo = $2.label;
+
+				$$.traducao = $4.traducao + 
+				"\t" + temp_original + " = " + $4.label + ";\n" + // atribuição intermediária
+				"\t" + $$.label + " = (" + $$.tipo + ") " + temp_original + ";\n"; // cast
+				}
+			}
+    		;
 
 E 			: E '+' E
 			{
@@ -178,73 +254,33 @@ E 			: E '+' E
 			{
 				op_logicos($$, $1, $3, "||");
 			}
-			| '!'E
+			| P
 			{
-				if ($2.tipo == "bool"){
-					$$.label = gentempcode();
-					$$.tipo = "bool";
-					declaracoes += "\tint " + $$.label + ";\n";
-					$$.traducao = $2.traducao + "\t" + $$.label + 
-						" = !" + $2.label + ";\n";
-				}
-				else{ 
-					yyerror("ERRO: você está fazendo operações lógicas com tipos não booleanos");
-				}
-			}
-			| '(' E ')'
-			{
-				$$.label = $2.label;
-				$$.traducao = $2.traducao;
-				$$.tipo = $2.tipo;
-			}
-			| TK_ID '=' E
-			{
-				if(tabela_simbolos.count($1.label)){
-					auto info = tabela_simbolos[$1.label];
-					$$.label = info.temp;
-					$$.tipo = info.tipo;
-					$$.traducao = $3.traducao + "\t" + $$.label + " = " + $3.label + ";\n";
-				}
-				else{
-					$$.label = $1.label;
-					$$.tipo = $3.tipo;
-					$$.traducao = $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";	
-				}
-			}
-			| TK_ID
-			{
-				if(tabela_simbolos.count($1.label)){
-					auto info = tabela_simbolos[$1.label];
-					$$.label = info.temp;
-					$$.tipo = info.tipo;
-					$$.traducao = "";
-				}
-				else{
-					$$.label = gentempcode();
-					$$.tipo = "int"; // Considerei int por padrão
-					$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
-				}
-			}
-			| TK_NUM
-			{
-				$$.label = gentempcode();
+				$$.label = $1.label;
 				$$.tipo = $1.tipo;
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+				$$.traducao = $1.traducao;
 			}
-			| TK_CHARLITERAL
+			
+			| TK_ID '=' E 
 			{
-				$$.label = $1.label;
-				$$.tipo = "char";
-				$$.traducao = ""; 
+   				if(tabela_simbolos.count($1.label)){
+        			auto info = tabela_simbolos[$1.label]; 
+        			$$.label = info.temp;
+        			$$.tipo = info.tipo;
+					
+        			// Verifica se os tipos são diferentes 
+        			if (info.tipo != $3.tipo) {
+            			if (info.tipo == "float" && $3.tipo == "int") 
+                			$3.label = castGerar("float", $3.label, $3.traducao); 
+            			else if (info.tipo == "int" && $3.tipo == "float") 
+                			$3.label = castGerar("int", $3.label, $3.traducao);
+        			}
+
+        			$$.traducao = $3.traducao + "\t" + $$.label + " = " + $3.label + ";\n";
+    				}
+    			else 
+       				yyerror("você está tentando usar uma variável que não foi declarada");
 			}
-			| TK_BOOLLIT
-			{
-				$$.label = $1.label;
-				$$.tipo = "int";
-				$$.traducao = "";
-			}
-			;
 
 %%
 
@@ -261,15 +297,17 @@ string gentempcode()
 int main(int argc, char* argv[])
 {
 	var_temp_qnt = 0;
+	erro_count = 0;
 
-	if (yyparse() == 0)
-		cout << codigo_gerado;
+	if (yyparse() == 0 && erro_count == 0)
+        cout << codigo_gerado;
 
 	return 0;
 }
 
 void yyerror(string MSG)
 {
+	erro_count++;
 	cerr << "Erro na linha " << linha << ": " << MSG << endl;
 }
 
@@ -277,8 +315,8 @@ void yyerror(string MSG)
 string castGerar(string cast_tipo, string label, string& cast_traducao){
 	string temp = gentempcode(); //gera a string temporaria q vai receber o resultado do cast
 	declaracoes += "\t" + cast_tipo + " " + temp + ";\n"; //faz a declaracao dessa nova string temporaria
-	cast_traducao += + "\t" + temp + " = " + "(" + cast_tipo + 
-	")" + label + ";\n"; //faz a traducao para p codigo em c da nova string temporaria. Ex: t2 = (float)t1;
+	cast_traducao += "\t" + temp + " = " + "(" + cast_tipo + 
+	") " + label + ";\n"; //faz a traducao para p codigo em c da nova string temporaria. Ex: t2 = (float)t1;
 	return temp; //retorna o novo label para um dos "E", pois um deles sofre o cast e muda o nome da variável
 }
 
@@ -310,7 +348,7 @@ void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op
 		" = " + d1.label + " " + op + " " + d3.label + ";\n";
 	}
 	else{
-		yyerror("ERRO: você está tentando operar com tipos nao numericos");
+		yyerror("você está tentando operar com tipos nao numericos");
 	}
 }
 
@@ -332,6 +370,14 @@ void op_logicos(atributos& dd, atributos& d1, atributos& d3, string op){
 		"\t" + dd.label + " = " + d1.label + " " + op + " " + d3.label + ";\n";
 	}
 	else{ 
-		yyerror("ERRO: você está fazendo operações lógicas com tipos não booleanos");
+		yyerror("você está fazendo operações lógicas com tipos não booleanos");
 	}
+}
+
+bool cast_valido(string destino, string origem) {
+
+    if ((destino == "int" || destino == "float") && (origem == "int" || origem == "float")) 
+        	return true; // Cast entre números é permitido
+
+    return false; 
 }
