@@ -19,18 +19,26 @@ struct info_var{
 
 map<string, info_var> tabela_simbolos;
 
+//armazena as informações para o cast
 struct info_cast{
 	string resultado;
 	string cast_esq;
 	string cast_dir;
 };
 
+//tabela_consultas é um mapa onde a chave é um par<string, string>
+//e o retorno é info_cast. passo os tipos de $1 e $3 e tenho como retorno
+//os tipos que cada uma das variáveis $$, $1 e $2 devem assumir após o cast
 map<pair<string, string>, info_cast> tabela_consulta{
 	{{"int", "int"}, {"int", "", ""}},
 	{{"int", "float"}, {"float", "float", ""}},
-	{{"float", "float"}, {"float", "", ""}},
 	{{"float", "int"}, {"float", "", "float"}},
+	{{"float", "float"}, {"float", "", ""}},
+	
 };
+
+string tipos_numericos[] = {"int", "float"};
+int tam_tipos_numericos = 2;
 
 struct atributos
 {
@@ -42,7 +50,10 @@ struct atributos
 int yylex(void);
 void yyerror(string);
 string gentempcode();
-string castGerar(string, string, string&);
+string castGerar(string, string, string&); //função responsável pelo cast
+void operacoes(atributos&, atributos&, atributos&, string, string); //função responsável pelas operações artiméticas e relacionais
+void op_logicos(atributos&, atributos&, atributos&, string); //função responsável pelas operações lógicas
+bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
 %}
 
 %token TK_NUM TK_CHARLITERAL TK_BOOLLIT
@@ -121,149 +132,51 @@ DEC 		: TK_INT TK_ID ';'
 
 E 			: E '+' E
 			{
-				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
-				$$.tipo = cast.resultado;
-				$$.label = gentempcode();
-				string cast_traducao = $1.traducao + $3.traducao;
-
-				if(cast.cast_esq != ""){
-					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
-				}
-				if(cast.cast_dir != ""){
-					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
-				}
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = cast_traducao + "\t" + $$.label +
-					" = " + $1.label + " + " + $3.label + ";\n";
+				operacoes($$, $1, $3, "+", "arit");
 			}
 			| E '-' E
 			{
-				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
-				$$.tipo = cast.resultado;
-				$$.label = gentempcode();
-				string cast_traducao = $1.traducao + $3.traducao;
-
-				if(cast.cast_esq != ""){
-					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
-				}
-				if(cast.cast_dir != ""){
-					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
-				}
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = cast_traducao + "\t" + $$.label +
-					" = " + $1.label + " - " + $3.label + ";\n";
+				operacoes($$, $1, $3, "-", "arit");
 			}
 			| E '*' E
 			{
-				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
-				$$.tipo = cast.resultado;
-				$$.label = gentempcode();
-				string cast_traducao = $1.traducao + $3.traducao;
-
-				if(cast.cast_esq != ""){
-					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
-				}
-				if(cast.cast_dir != ""){
-					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
-				}
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = cast_traducao + "\t" + $$.label +
-					" = " + $1.label + " * " + $3.label + ";\n";
+				operacoes($$, $1, $3, "*", "arit");
 			}
 			| E '/' E
 			{
-				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
-				$$.tipo = cast.resultado;
-				$$.label = gentempcode();
-				string cast_traducao = $1.traducao + $3.traducao;
-
-				if(cast.cast_esq != ""){
-					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
-				}
-				if(cast.cast_dir != ""){
-					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
-				}
-				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = cast_traducao + "\t" + $$.label +
-					" = " + $1.label + " / " + $3.label + ";\n";
+				operacoes($$, $1, $3, "/", "arit");
 			}
 			| E '<' E
 			{
-				$$.label = gentempcode();
-				$$.tipo = "bool";
-				declaracoes += "\tint " + $$.label + ";\n";
-
-				$$.traducao = $1.traducao + $3.traducao + 
-				"\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n";
+				operacoes($$, $1, $3, "<", "rel");
 			}
 			| E '>' E
 			{
-				$$.label = gentempcode();
-				$$.tipo = "bool";
-				declaracoes += "\tint " + $$.label + ";\n";
-
-				$$.traducao = $1.traducao + $3.traducao + 
-				"\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n";
+				operacoes($$, $1, $3, ">", "rel");
 			}
 			| E TK_MAI E
 			{
-				$$.label = gentempcode();
-				$$.tipo = "bool";
-				declaracoes += "\tint " + $$.label + ";\n";
-
-				$$.traducao = $1.traducao + $3.traducao + 
-				"\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n";
+				operacoes($$, $1, $3, ">=", "rel");
 			}
 			| E TK_MEI E
 			{
-				$$.label = gentempcode();
-				$$.tipo = "bool";
-				declaracoes += "\tint " + $$.label + ";\n";
-
-				$$.traducao = $1.traducao + $3.traducao + 
-				"\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n";
+				operacoes($$, $1, $3, "<=", "rel");
 			}
 			| E TK_DF E
 			{
-				$$.label = gentempcode();
-				$$.tipo = "bool";
-				declaracoes += "\tint " + $$.label + ";\n";
-
-				$$.traducao = $1.traducao + $3.traducao + 
-				"\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n";
+				operacoes($$, $1, $3, "!=", "rel");
 			}
 			| E TK_II E
 			{
-				$$.label = gentempcode();
-				$$.tipo = "bool";
-				declaracoes += "\tint " + $$.label + ";\n";
-
-				$$.traducao = $1.traducao + $3.traducao + 
-				"\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n";
+				operacoes($$, $1, $3, "==", "rel");
 			}
 			| E TK_AND E
 			{
-				if ($1.tipo == "bool" && $3.tipo == "bool"){
-					$$.label = gentempcode();
-					$$.tipo = "bool";
-					declaracoes += "\tint " + $$.label + ";\n";
-
-					$$.traducao = $1.traducao + $3.traducao + 
-					"\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n";
-				}else 
-					yyerror("ERRO");
+				op_logicos($$, $1, $3, "&&");
 			}
 			| E TK_OR E
 			{
-				if ($1.tipo == "bool" && $3.tipo == "bool"){
-					$$.label = gentempcode();
-					$$.tipo = "bool";
-					declaracoes += "\tint " + $$.label + ";\n";
-
-					$$.traducao = $1.traducao + $3.traducao + 
-					"\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n";
-				}else 
-					yyerror("ERRO");
+				op_logicos($$, $1, $3, "||");
 			}
 			| '!'E
 			{
@@ -271,11 +184,12 @@ E 			: E '+' E
 					$$.label = gentempcode();
 					$$.tipo = "bool";
 					declaracoes += "\tint " + $$.label + ";\n";
-
-					$$.traducao =  $2.traducao + 
-					"\t" + $$.label + " = !" + $2.label + ";\n";
-				}else 
-					yyerror("ERRO");
+					$$.traducao = $2.traducao + "\t" + $$.label + 
+						" = !" + $2.label + ";\n";
+				}
+				else{ 
+					yyerror("ERRO: você está fazendo operações lógicas com tipos não booleanos");
+				}
 			}
 			| '(' E ')'
 			{
@@ -366,4 +280,58 @@ string castGerar(string cast_tipo, string label, string& cast_traducao){
 	cast_traducao += + "\t" + temp + " = " + "(" + cast_tipo + 
 	")" + label + ";\n"; //faz a traducao para p codigo em c da nova string temporaria. Ex: t2 = (float)t1;
 	return temp; //retorna o novo label para um dos "E", pois um deles sofre o cast e muda o nome da variável
+}
+
+void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op_tipo){
+	if(eh_tipo_numerico(d1) && eh_tipo_numerico(d3)){
+		auto cast = tabela_consulta[{d1.tipo, d3.tipo}]; //consulta a tabela para saber se será necessário fazer cast
+		if(op_tipo == "arit"){
+			dd.tipo = cast.resultado; //define o tipo de $$ conforme a necessidade de fazer cast ou n	
+		}
+		else{
+			dd.tipo = "bool"; //se for operação relacional, o tipo de $$(dd) sempre será bool
+		}
+		dd.label = gentempcode(); 
+		string cast_traducao = d1.traducao + d3.traducao; 
+		if(cast.cast_esq != ""){
+			d1.label = castGerar(cast.cast_esq, d1.label, cast_traducao); //chama a função q faz o cast caso seja necessário
+		}
+		if(cast.cast_dir != ""){
+			d3.label = castGerar(cast.cast_dir, d3.label, cast_traducao); 
+		}
+		if(op_tipo == "arit"){
+			declaracoes += "\t" + dd.tipo + " " + dd.label + ";\n";	
+		}
+		else{
+			declaracoes += "\tint " + dd.label + ";\n";	//tratamento especial para o tipo bool pq ele n existe em C
+		}
+		
+		dd.traducao = cast_traducao + "\t" + dd.label +
+		" = " + d1.label + " " + op + " " + d3.label + ";\n";
+	}
+	else{
+		yyerror("ERRO: você está tentando operar com tipos nao numericos");
+	}
+}
+
+bool eh_tipo_numerico(atributos& d){
+	for(int i = 0; i < tam_tipos_numericos; i++){
+		if(d.tipo == tipos_numericos[i]){
+			return true;
+		}
+	}
+	return false;
+}
+
+void op_logicos(atributos& dd, atributos& d1, atributos& d3, string op){
+	if (d1.tipo == "bool" && d3.tipo == "bool"){
+		dd.label = gentempcode();
+		dd.tipo = "bool";
+		declaracoes += "\tint " + dd.label + ";\n";
+		dd.traducao = d1.traducao + d3.traducao + 
+		"\t" + dd.label + " = " + d1.label + " " + op + " " + d3.label + ";\n";
+	}
+	else{ 
+		yyerror("ERRO: você está fazendo operações lógicas com tipos não booleanos");
+	}
 }
