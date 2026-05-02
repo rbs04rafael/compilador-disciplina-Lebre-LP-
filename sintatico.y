@@ -17,7 +17,20 @@ struct info_var{
 	string tipo;
 };
 
-map<string, info_var> tabela_simbolos; 
+map<string, info_var> tabela_simbolos;
+
+struct info_cast{
+	string resultado;
+	string cast_esq;
+	string cast_dir;
+};
+
+map<pair<string, string>, info_cast> tabela_consulta{
+	{{"int", "int"}, {"int", "", ""}},
+	{{"int", "float"}, {"float", "float", ""}},
+	{{"float", "float"}, {"float", "", ""}},
+	{{"float", "int"}, {"float", "", "float"}},
+};
 
 struct atributos
 {
@@ -29,6 +42,7 @@ struct atributos
 int yylex(void);
 void yyerror(string);
 string gentempcode();
+string castGerar(string, string, string&);
 %}
 
 %token TK_NUM TK_CHARLITERAL TK_BOOLLIT
@@ -107,55 +121,70 @@ DEC 		: TK_INT TK_ID ';'
 
 E 			: E '+' E
 			{
+				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
+				$$.tipo = cast.resultado;
 				$$.label = gentempcode();
+				string cast_traducao = $1.traducao + $3.traducao;
 
-				if ($1.tipo == "float" || $3.tipo == "float") 
-            		$$.tipo = "float";
-       			else 
-           			 $$.tipo = "int";
-       				 
+				if(cast.cast_esq != ""){
+					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
+				}
+				if(cast.cast_dir != ""){
+					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
+				}
 				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+				$$.traducao = cast_traducao + "\t" + $$.label +
 					" = " + $1.label + " + " + $3.label + ";\n";
 			}
 			| E '-' E
 			{
+				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
+				$$.tipo = cast.resultado;
 				$$.label = gentempcode();
+				string cast_traducao = $1.traducao + $3.traducao;
 
-				if ($1.tipo == "float" || $3.tipo == "float") 
-            		$$.tipo = "float";
-       			else 
-           			 $$.tipo = "int";
-       				 
+				if(cast.cast_esq != ""){
+					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
+				}
+				if(cast.cast_dir != ""){
+					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
+				}
 				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+				$$.traducao = cast_traducao + "\t" + $$.label +
 					" = " + $1.label + " - " + $3.label + ";\n";
 			}
 			| E '*' E
 			{
+				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
+				$$.tipo = cast.resultado;
 				$$.label = gentempcode();
+				string cast_traducao = $1.traducao + $3.traducao;
 
-				if ($1.tipo == "float" || $3.tipo == "float") 
-            		$$.tipo = "float";
-       			else 
-           			 $$.tipo = "int";
-
+				if(cast.cast_esq != ""){
+					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
+				}
+				if(cast.cast_dir != ""){
+					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
+				}
 				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $3.label + " * " + $1.label + ";\n";
+				$$.traducao = cast_traducao + "\t" + $$.label +
+					" = " + $1.label + " * " + $3.label + ";\n";
 			}
 			| E '/' E
 			{
+				auto cast = tabela_consulta[{$1.tipo, $3.tipo}];
+				$$.tipo = cast.resultado;
 				$$.label = gentempcode();
+				string cast_traducao = $1.traducao + $3.traducao;
 
-				if ($1.tipo == "float" || $3.tipo == "float")
-            		$$.tipo = "float";
-       			else 
-           			 $$.tipo = "int";
-       				 
-
+				if(cast.cast_esq != ""){
+					$1.label = castGerar(cast.cast_esq, $1.label, cast_traducao);
+				}
+				if(cast.cast_dir != ""){
+					$3.label = castGerar(cast.cast_dir, $3.label, cast_traducao);
+				}
 				declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+				$$.traducao = cast_traducao + "\t" + $$.label +
 					" = " + $1.label + " / " + $3.label + ";\n";
 			}
 			| E '<' E
@@ -328,4 +357,13 @@ int main(int argc, char* argv[])
 void yyerror(string MSG)
 {
 	cerr << "Erro na linha " << linha << ": " << MSG << endl;
+}
+
+//funcao que fica responsável por fazer o cast
+string castGerar(string cast_tipo, string label, string& cast_traducao){
+	string temp = gentempcode(); //gera a string temporaria q vai receber o resultado do cast
+	declaracoes += "\t" + cast_tipo + " " + temp + ";\n"; //faz a declaracao dessa nova string temporaria
+	cast_traducao += + "\t" + temp + " = " + "(" + cast_tipo + 
+	")" + label + ";\n"; //faz a traducao para p codigo em c da nova string temporaria. Ex: t2 = (float)t1;
+	return temp; //retorna o novo label para um dos "E", pois um deles sofre o cast e muda o nome da variável
 }
