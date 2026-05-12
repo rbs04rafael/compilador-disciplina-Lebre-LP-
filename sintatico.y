@@ -267,6 +267,16 @@ E 			: E '+' E
         			auto info = tabela_simbolos[$1.label]; 
         			$$.label = info.temp;
         			$$.tipo = info.tipo;
+
+					if(info.tipo == "bool" && $3.tipo != "bool"){
+						yyerror("bool recebendo numerico");
+					}
+					if(info.tipo == "int" && $3.tipo == "bool"){
+						yyerror("numerico recebendo bool");
+					}
+					if(info.tipo == "float" && $3.tipo == "bool"){
+						yyerror("numerico recebendo bool");
+					}
 					
         			// Verifica se os tipos são diferentes 
         			if (info.tipo != $3.tipo) {
