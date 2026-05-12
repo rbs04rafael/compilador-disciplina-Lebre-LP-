@@ -1,0 +1,6 @@
+logico a;
+logico b;
+logico r;
+a = true;
+b = false;
+r = a < b;

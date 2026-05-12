@@ -1,4 +1,5 @@
-real f;
-inteiro i;
+inteiro b;
+logico a;
+a = true;
 
-i = (inteiro) f + 10;
+b = a;

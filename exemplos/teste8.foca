@@ -1,0 +1,9 @@
+inteiro i;
+real f;
+real r;
+i = 5;
+f = 2.5;
+r = i + f;
+r = f * i;
+r = f - i;
+r = i / f;

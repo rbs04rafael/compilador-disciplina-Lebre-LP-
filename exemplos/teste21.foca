@@ -1,0 +1,6 @@
+real a;
+real b;
+real r;
+a = 0.5;
+b = 10.001;
+r = a + b;

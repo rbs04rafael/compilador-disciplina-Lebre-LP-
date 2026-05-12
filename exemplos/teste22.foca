@@ -1,0 +1,4 @@
+logico b;
+inteiro i;
+i = 12;
+b = i;

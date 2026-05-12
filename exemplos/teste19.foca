@@ -1,0 +1,4 @@
+inteiro a;
+logico r;
+a = 5;
+r = !a;

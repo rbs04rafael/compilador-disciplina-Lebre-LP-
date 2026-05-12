@@ -1,0 +1,11 @@
+inteiro a;
+inteiro b;
+logico r;
+a = 5;
+b = 10;
+r = a < b;
+r = a > b;
+r = a <= b;
+r = a >= b;
+r = a == b;
+r = a != b;

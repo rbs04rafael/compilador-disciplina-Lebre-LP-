@@ -1,0 +1,4 @@
+caractere c;
+inteiro r;
+c = 'a';
+r = c + 1;

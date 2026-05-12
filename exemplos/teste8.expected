@@ -1,0 +1,35 @@
+/*Compilador FOCA*/
+#include <stdio.h>
+int main(void) {
+	int t1;
+	float t2;
+	float t3;
+	int t4;
+	float t5;
+	float t7;
+	float t6;
+	float t9;
+	float t8;
+	float t11;
+	float t10;
+	float t13;
+	float t12;
+
+	t4 = 5;
+	t1 = t4;
+	t5 = 2.5;
+	t2 = t5;
+	t7 = (float) t1;
+	t6 = t7 + t2;
+	t3 = t6;
+	t9 = (float) t1;
+	t8 = t2 * t9;
+	t3 = t8;
+	t11 = (float) t1;
+	t10 = t2 - t11;
+	t3 = t10;
+	t13 = (float) t1;
+	t12 = t13 / t2;
+	t3 = t12;
+	return 0;
+}

@@ -1,0 +1,8 @@
+inteiro a;
+inteiro b;
+inteiro c;
+logico r;
+a = 1;
+b = 2;
+c = 3;
+r = a < b < c;

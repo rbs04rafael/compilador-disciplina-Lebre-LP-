@@ -1,0 +1,9 @@
+inteiro a;
+inteiro b;
+real c;
+logico r;
+a = 4;
+b = 2;
+c = 1.5;
+r = (a + b) > a * b;
+r = (a - b) == (b - a + 2);

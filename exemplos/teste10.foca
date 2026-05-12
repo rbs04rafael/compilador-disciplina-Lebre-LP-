@@ -1,0 +1,5 @@
+real f;
+inteiro i;
+f = 3.99;
+i = (inteiro) f;
+f = (real) i;

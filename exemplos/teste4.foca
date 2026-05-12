@@ -1,0 +1,9 @@
+inteiro i;
+real f;
+caractere c;
+logico b;
+i = 42;
+f = 1.5;
+c = 'a';
+b = true;
+b = false;

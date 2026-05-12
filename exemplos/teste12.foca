@@ -1,0 +1,10 @@
+inteiro a;
+inteiro b;
+inteiro c;
+inteiro d;
+inteiro r;
+a = 1;
+b = 2;
+c = 3;
+d = 4;
+r = ((a + b) * (c + d)) - ((a * b) + (c * d));

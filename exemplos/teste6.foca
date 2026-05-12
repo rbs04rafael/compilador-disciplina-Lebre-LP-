@@ -1,0 +1,11 @@
+logico a;
+logico b;
+logico r;
+a = true;
+b = false;
+r = a && b;
+r = a || b;
+r = !a;
+r = !b;
+r = a && !b;
+r = !a || b;

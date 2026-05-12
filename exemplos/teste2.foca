@@ -1,0 +1,9 @@
+real x;
+real y;
+real r;
+x = 3.14;
+y = 2.0;
+r = x + y;
+r = x - y;
+r = x * y;
+r = x / y;

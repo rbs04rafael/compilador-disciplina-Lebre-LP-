@@ -1,0 +1,4 @@
+inteiro i;
+caractere c;
+i = 5;
+c = (caractere) i;

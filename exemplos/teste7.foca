@@ -1,0 +1,5 @@
+logico a;
+logico r;
+a = true;
+r = !a;
+r = !!a;

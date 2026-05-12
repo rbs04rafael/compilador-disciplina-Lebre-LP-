@@ -1,0 +1,5 @@
+inteiro i;
+real f;
+i = 7;
+f = i;
+i = f + 1.5;

@@ -1,0 +1,12 @@
+inteiro a;
+inteiro b;
+inteiro c;
+inteiro r1;
+inteiro r2;
+inteiro r3;
+a = 2;
+b = 3;
+c = 4;
+r1 = (a + b) * c;
+r2 = a + b * c;
+r3 = ((a + b) * (c - a)) / b;
