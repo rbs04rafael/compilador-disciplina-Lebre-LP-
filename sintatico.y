@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <vector>
 
 #define YYSTYPE atributos
 
@@ -9,16 +10,18 @@ using namespace std;
 
 int var_temp_qnt;
 int linha = 1;
+int erro_count = 0; 
+int nivel_escopo = 0;
 string codigo_gerado;
 string declaracoes;
-int erro_count = 0; //contar se houve algum erro para não gerar código caso haja.
+string declaracoes_anterior;
 
 struct info_var{
 	string temp;
 	string tipo;
 };
 
-map<string, info_var> tabela_simbolos;
+vector<map<string, info_var>> tabela_escopos; //vetor de tabela de simbolos para blocos
 
 //armazena as informações para o cast
 struct info_cast{
@@ -56,7 +59,12 @@ void operacoes(atributos&, atributos&, atributos&, string, string); //função r
 void op_logicos(atributos&, atributos&, atributos&, string); //função responsável pelas operações lógicas
 bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
 bool cast_valido(string destino, string origem); //função que determina se um cast é válido ou não, usada para validar o cast explícito
+
+void declarar_variavel(string nome, string tipo);
+info_var consultar_variavel(string nome);
+void limpar_escopo();
 %}
+
 
 %token TK_NUM TK_CHARLITERAL TK_BOOLLIT
 %token TK_INT TK_FLOAT TK_CHAR TK_BOOL TK_ID
@@ -95,38 +103,32 @@ LISTA_DEC  : LISTA_DEC DEC
             {
                 $$.traducao = $1.traducao + $2.traducao;
             }
-            | /* vazio */
+            | '{' 
+			{
+
+				declaracoes_anterior = declaracoes;
+				declaracoes = "";
+				tabela_escopos.push_back(map<string, info_var>());
+				nivel_escopo++;
+			}
+			LISTA_DEC '}'
+			{
+				$$.traducao = "{\n" + declaracoes + "\n "+ $3.traducao + "}\n\n";
+
+				declaracoes = declaracoes_anterior;
+				nivel_escopo--; 
+				tabela_escopos.pop_back();
+			}
+			| /* vazio */
             {
                 $$.traducao = "";
             }
             ;
 
-DEC 		: TK_INT TK_ID ';'
-			{
-				string temp = gentempcode();
-				tabela_simbolos[$2.label] = {temp, "int"};
-				declaracoes += "\tint " + temp + ";\n";
-			}
-			| TK_FLOAT TK_ID ';'
-			{
-				string temp = gentempcode();
-				tabela_simbolos[$2.label] = {temp, "float"};
-				declaracoes += "\tfloat " + temp + ";\n";
-			}
-			|
-			TK_CHAR TK_ID ';'
-			{
-				string temp = gentempcode();
-				tabela_simbolos[$2.label] = {temp, "char"};
-				declaracoes += "\tchar " + temp + ";\n";
-			
-			}
-			| TK_BOOL TK_ID ';'
-			{	
-				string temp = gentempcode();
-				tabela_simbolos[$2.label] = {temp, "bool"};
-				declaracoes += "\tint " + temp + ";\n";
-			}
+DEC 		: TK_INT TK_ID ';'   { declarar_variavel($2.label, "int"); }
+			| TK_FLOAT TK_ID ';' { declarar_variavel($2.label, "float"); }
+			| TK_CHAR TK_ID ';'  { declarar_variavel ($2.label, "char"); }
+			| TK_BOOL TK_ID ';'  { declarar_variavel($2.label, "bool"); }
 			;
 
 TIPO		: TK_INT 	{ $$.label = "int"; }
@@ -144,15 +146,10 @@ P       	: TK_NUM
         	}
         	| TK_ID
         	{
-        		if(tabela_simbolos.count($1.label)){
-        			auto info = tabela_simbolos[$1.label];
+        			auto info = consultar_variavel($1.label);
         			$$.label = info.temp;
         			$$.tipo = info.tipo;
         			$$.traducao = "";
-        		}
-        		else{
-        			yyerror("você está tentando usar uma variável que não foi declarada");
-        		}
         	}
         	| TK_CHARLITERAL
         	{
@@ -260,11 +257,9 @@ E 			: E '+' E
 				$$.tipo = $1.tipo;
 				$$.traducao = $1.traducao;
 			}
-			
 			| TK_ID '=' E 
 			{
-   				if(tabela_simbolos.count($1.label)){
-        			auto info = tabela_simbolos[$1.label]; 
+        			auto info = consultar_variavel($1.label); 
         			$$.label = info.temp;
         			$$.tipo = info.tipo;
 
@@ -284,13 +279,11 @@ E 			: E '+' E
                 			$3.label = castGerar("float", $3.label, $3.traducao); 
             			else if (info.tipo == "int" && $3.tipo == "float") 
                 			$3.label = castGerar("int", $3.label, $3.traducao);
-        			}
-
+				}	
         			$$.traducao = $3.traducao + "\t" + $$.label + " = " + $3.label + ";\n";
-    				}
-    			else 
-       				yyerror("você está tentando usar uma variável que não foi declarada");
 			}
+			
+			
 
 %%
 
@@ -308,6 +301,8 @@ int main(int argc, char* argv[])
 {
 	var_temp_qnt = 0;
 	erro_count = 0;
+
+	tabela_escopos.push_back(map<string, info_var>()); //cria o escopo global
 
 	if (yyparse() == 0 && erro_count == 0)
         cout << codigo_gerado;
@@ -391,3 +386,28 @@ bool cast_valido(string destino, string origem) {
 
     return false; 
 }
+
+void declarar_variavel(string nome, string tipo){
+	if(tabela_escopos.back().count(nome)){
+		yyerror("variável " + nome + " já declarada nesse escopo");
+	}
+	else{
+		string temp = gentempcode();
+		tabela_escopos.back()[nome] = {temp, tipo};
+		string tipo_c = (tipo == "bool") ? "int" : tipo;
+		declaracoes += "\t" + tipo_c +  " " + temp + ";\n";
+	}
+
+}
+
+info_var consultar_variavel(string nome){
+	for (int i = tabela_escopos.size() - 1; i >= 0; i--) {
+    	if (tabela_escopos[i].count(nome)) {
+        	auto info = tabela_escopos[i][nome];
+         	return info;
+    	}
+	}
+	yyerror("variável "+ nome +" não declarada");
+
+	return {"", ""};
+	}

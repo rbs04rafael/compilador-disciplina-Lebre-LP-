@@ -1,5 +1,0 @@
-inteiro b;
-logico a;
-a = true;
-
-b = a;
