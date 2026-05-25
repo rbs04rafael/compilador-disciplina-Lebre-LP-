@@ -15,6 +15,8 @@ NUM {DIGITO}+
 REAL {NUM}{FLUTUANTE}
 CARACTERE '{LETRA}?'
 
+TEXTO ["][^"]*["]
+
 %%
 
 "\n"		{ linha++; }
@@ -35,6 +37,7 @@ CARACTERE '{LETRA}?'
 "inteiro"   { return TK_INT; }
 "caractere" { return TK_CHAR; }
 "logico"    { return TK_BOOL; }
+"texto"     { return TK_STRING; }
 
 "true"      { yylval.label = "1"; yylval.tipo = "bool"; return TK_BOOLLIT;}
 "false"     { yylval.label = "0"; yylval.tipo = "bool"; return TK_BOOLLIT;}
@@ -42,6 +45,7 @@ CARACTERE '{LETRA}?'
 {REAL}      { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM;}
 {NUM}		{ yylval.label = yytext; yylval.tipo = "int"; return TK_NUM; }
 {CARACTERE} { yylval.label = yytext; yylval.tipo = "char"; return TK_CHARLITERAL; }
+{TEXTO}     { yylval.label = yytext; yylval.tipo = "string"; return TK_STRINGLITERAL; }
 
 {ID}        { yylval.label = yytext; return TK_ID; }
 

@@ -59,15 +59,12 @@ void operacoes(atributos&, atributos&, atributos&, string, string); //função r
 void op_logicos(atributos&, atributos&, atributos&, string); //função responsável pelas operações lógicas
 bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
 bool cast_valido(string destino, string origem); //função que determina se um cast é válido ou não, usada para validar o cast explícito
-
 void declarar_variavel(string nome, string tipo);
 info_var consultar_variavel(string nome);
-void limpar_escopo();
 %}
 
-
-%token TK_NUM TK_CHARLITERAL TK_BOOLLIT
-%token TK_INT TK_FLOAT TK_CHAR TK_BOOL TK_ID
+%token TK_NUM TK_CHARLITERAL TK_BOOLLIT TK_STRINGLITERAL
+%token TK_INT TK_FLOAT TK_CHAR TK_BOOL TK_STRING TK_ID
 %token TK_MAI TK_MEI  TK_II TK_DF
 %token TK_AND TK_OR
 
@@ -84,14 +81,24 @@ void limpar_escopo();
 
 S           : LISTA_DEC
             {
-                codigo_gerado = "/*Compilador FOCA*/\n"
+                codigo_gerado = "\n/*Compilador FOCA*/\n"
                                 "#include <stdio.h>\n"
+								"#include <stdlib.h>\n"
+								"#include <string.h>\n\n"
+								"int tamString(char* s){\n"
+									"\tint i = 0;\n"
+									"\twhile(s[i] != '\\0')\n"
+										"\t\ti++;\n"
+						
+									"\treturn i;\n"
+								"}\n\n"
+								
                                 "int main(void) {\n";
 
                 codigo_gerado += declaracoes + "\n" + $1.traducao;
 
-                codigo_gerado += "\treturn 0;"
-                            "\n}\n";
+                codigo_gerado += "\n\treturn 0;"
+                            "\n}\n\n";
             }
             ;
 
@@ -103,7 +110,7 @@ LISTA_DEC  : LISTA_DEC DEC
             {
                 $$.traducao = $1.traducao + $2.traducao;
             }
-            | '{' 
+            | LISTA_DEC '{' 
 			{
 
 				declaracoes_anterior = declaracoes;
@@ -113,7 +120,7 @@ LISTA_DEC  : LISTA_DEC DEC
 			}
 			LISTA_DEC '}'
 			{
-				$$.traducao = "{\n" + declaracoes + "\n "+ $3.traducao + "}\n\n";
+				$$.traducao = $1. traducao + "{\n" + declaracoes + "\n"+ $4.traducao + "}\n\n";
 
 				declaracoes = declaracoes_anterior;
 				nivel_escopo--; 
@@ -125,16 +132,18 @@ LISTA_DEC  : LISTA_DEC DEC
             }
             ;
 
-DEC 		: TK_INT TK_ID ';'   { declarar_variavel($2.label, "int"); }
-			| TK_FLOAT TK_ID ';' { declarar_variavel($2.label, "float"); }
-			| TK_CHAR TK_ID ';'  { declarar_variavel ($2.label, "char"); }
-			| TK_BOOL TK_ID ';'  { declarar_variavel($2.label, "bool"); }
+DEC 		: TK_INT TK_ID ';'    { declarar_variavel($2.label, "int"); }
+			| TK_FLOAT TK_ID ';'  { declarar_variavel($2.label, "float"); }
+			| TK_CHAR TK_ID ';'   { declarar_variavel ($2.label, "char"); }
+			| TK_BOOL TK_ID ';'   { declarar_variavel($2.label, "bool"); }
+			| TK_STRING TK_ID ';' { declarar_variavel($2.label, "string"); }
 			;
 
 TIPO		: TK_INT 	{ $$.label = "int"; }
 			| TK_FLOAT 	{ $$.label = "float"; }
 			| TK_CHAR 	{ $$.label = "char"; }
 			| TK_BOOL 	{ $$.label = "bool"; }
+			| TK_STRING { $$.label = "string"; }
 			;
 
 P       	: TK_NUM
@@ -161,6 +170,12 @@ P       	: TK_NUM
         	{
         		$$.label = $1.label;
         		$$.tipo = "bool";
+        		$$.traducao = "";
+        	}
+			| TK_STRINGLITERAL
+        	{
+        		$$.label = $1.label;
+        		$$.tipo = "string";
         		$$.traducao = "";
         	}
         	| '(' E ')'
@@ -263,15 +278,20 @@ E 			: E '+' E
         			$$.label = info.temp;
         			$$.tipo = info.tipo;
 
-					if(info.tipo == "bool" && $3.tipo != "bool"){
+					if(info.tipo == "string"){
+						$$.traducao = $3.traducao + "\t" + $$.label + " = " + "(char*) malloc(tamString(" + $3.label+ ") + 1);\n" 
+						+ "\tstrcpy(" + $$.label + ", " + $3.label + ");\n";
+
+					}else{
+
+					if(info.tipo == "bool" && $3.tipo != "bool")
 						yyerror("bool recebendo numerico");
-					}
-					if(info.tipo == "int" && $3.tipo == "bool"){
+					
+					if(info.tipo == "int" && $3.tipo == "bool")
 						yyerror("numerico recebendo bool");
-					}
-					if(info.tipo == "float" && $3.tipo == "bool"){
+					
+					if(info.tipo == "float" && $3.tipo == "bool")
 						yyerror("numerico recebendo bool");
-					}
 					
         			// Verifica se os tipos são diferentes 
         			if (info.tipo != $3.tipo) {
@@ -281,6 +301,7 @@ E 			: E '+' E
                 			$3.label = castGerar("int", $3.label, $3.traducao);
 				}	
         			$$.traducao = $3.traducao + "\t" + $$.label + " = " + $3.label + ";\n";
+			}
 			}
 			
 			
@@ -394,7 +415,7 @@ void declarar_variavel(string nome, string tipo){
 	else{
 		string temp = gentempcode();
 		tabela_escopos.back()[nome] = {temp, tipo};
-		string tipo_c = (tipo == "bool") ? "int" : tipo;
+		string tipo_c = (tipo == "bool") ? "int" : (tipo == "string") ? "char*" : tipo;
 		declaracoes += "\t" + tipo_c +  " " + temp + ";\n";
 	}
 
