@@ -1,0 +1,11 @@
+logico a;
+inteiro x;
+
+a = true;
+x = 0;
+
+se (a) {
+	x = 1;
+} senao {
+	x = 2;
+}

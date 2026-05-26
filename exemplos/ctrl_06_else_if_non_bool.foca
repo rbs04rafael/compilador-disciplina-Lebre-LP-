@@ -1,0 +1,9 @@
+logico a;
+
+se (a) {
+	a = true;
+} senao se (1) {
+	a = false;
+} senao {
+	a = true;
+}

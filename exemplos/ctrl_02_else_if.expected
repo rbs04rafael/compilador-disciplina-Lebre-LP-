@@ -1,0 +1,35 @@
+/*Compilador FOCA*/
+#include <stdio.h>
+int main(void) {
+	int t1;
+	int t2;
+	int t3;
+	int t4;
+	int t5;
+	int t7;
+
+	t3 = 1;
+	t1 = t3;
+	t4 = 2;
+	t2 = t4;
+	t5 = t1 == t2;
+	if (t5) {
+	int t6;
+	t6 = 3;
+	t1 = t6;
+	}
+	else {
+	t7 = t1 < t2;
+		if(t7) {
+	int t8;
+	t8 = 4;
+	t1 = t8;
+	}
+		else {
+	int t9;
+	t9 = 5;
+	t1 = t9;
+	}
+	}
+	return 0;
+}

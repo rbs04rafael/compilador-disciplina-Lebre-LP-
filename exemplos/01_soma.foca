@@ -1,0 +1,21 @@
+
+inteiro a;
+a = 5;
+inteiro b;
+b = 2;
+se(a == b){
+
+}
+senao se(a < b){
+    inteiro d;
+}
+senao se(a > b){
+    inteiro d;
+}
+senao se(a != b){
+    inteiro d;
+}
+senao{
+    inteiro d;
+}
+

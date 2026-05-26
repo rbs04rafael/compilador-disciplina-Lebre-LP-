@@ -1,0 +1,19 @@
+/*Compilador FOCA*/
+#include <stdio.h>
+int main(void) {
+	int t1;
+	int t2;
+	int t5;
+
+	t2 = 1;
+	t1 = t2;
+{
+	int t3;
+	int t4;
+	t4 = 2;
+	t3 = t4;
+	}
+	t5 = 3;
+	t1 = t5;
+	return 0;
+}

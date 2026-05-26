@@ -36,6 +36,10 @@ CARACTERE '{LETRA}?'
 "caractere" { return TK_CHAR; }
 "logico"    { return TK_BOOL; }
 
+"se"        { return TK_IF; }
+"senao"     { return TK_ELSE; }
+"senao se"    { return TK_ELSE_IF; }
+
 "true"      { yylval.label = "1"; yylval.tipo = "bool"; return TK_BOOLLIT;}
 "false"     { yylval.label = "0"; yylval.tipo = "bool"; return TK_BOOLLIT;}
 
