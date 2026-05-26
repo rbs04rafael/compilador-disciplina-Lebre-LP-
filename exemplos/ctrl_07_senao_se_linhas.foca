@@ -1,0 +1,14 @@
+inteiro a;
+inteiro b;
+
+a = 1;
+b = 2;
+
+se (a == b) {
+	a = 3;
+}
+senao{
+    se (a < b) {
+	    a = 4;
+    }
+}

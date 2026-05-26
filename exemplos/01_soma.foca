@@ -1,7 +1,12 @@
-real a;
-a = 5;
-
 {
-    inteiro c;
-    c = 3 + 4 + 5.2;}
-
+    inteiro a;
+    a = 1 + 2;
+    {
+        inteiro b;
+        b = 1 + 3;
+        {
+            inteiro c;
+            c = 3 + 1;
+        }
+    }
+}

@@ -14,7 +14,7 @@ int erro_count = 0;
 int nivel_escopo = 0;
 string codigo_gerado;
 string declaracoes;
-string declaracoes_anterior;
+vector<string> declaracoes_anterior;
 
 struct info_var{
 	string temp;
@@ -54,9 +54,12 @@ struct atributos
 int yylex(void);
 void yyerror(string);
 string gentempcode();
+string tabulacao(int); //calcula a tabulacao de acordo com o nivel do escopo
 string castGerar(string, string, string&); //função responsável pelo cast
 void operacoes(atributos&, atributos&, atributos&, string, string); //função responsável pelas operações artiméticas e relacionais
 void op_logicos(atributos&, atributos&, atributos&, string); //função responsável pelas operações lógicas
+void construtor_ctrl(atributos&, atributos&, atributos&, string, string); //função que constroi os comandos de controle
+void construtor_if_else(atributos&, atributos&, atributos&, string);
 bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
 bool cast_valido(string destino, string origem); //função que determina se um cast é válido ou não, usada para validar o cast explícito
 void declarar_variavel(string nome, string tipo);
@@ -67,6 +70,8 @@ info_var consultar_variavel(string nome);
 %token TK_INT TK_FLOAT TK_CHAR TK_BOOL TK_STRING TK_ID
 %token TK_MAI TK_MEI  TK_II TK_DF
 %token TK_AND TK_OR
+%token TK_IF TK_ELSE TK_ELSE_IF
+%token TK_PRINT
 
 %start S
 
@@ -110,21 +115,29 @@ LISTA_DEC  : LISTA_DEC DEC
             {
                 $$.traducao = $1.traducao + $2.traducao;
             }
-            | LISTA_DEC '{' 
+            | LISTA_DEC BLOCO
 			{
-
-				declaracoes_anterior = declaracoes;
-				declaracoes = "";
-				tabela_escopos.push_back(map<string, info_var>());
-				nivel_escopo++;
+				$$.traducao = $1.traducao + $2.traducao;
 			}
-			LISTA_DEC '}'
+			| LISTA_DEC CTRL
 			{
-				$$.traducao = $1. traducao + "{\n" + declaracoes + "\n"+ $4.traducao + "}\n\n";
+				$$.traducao = $1.traducao + $2.traducao;
+			}
+			| TK_PRINT '(' E ')' ';'
+			{
+				$$.label = "";
+				$$.tipo = "";
 
-				declaracoes = declaracoes_anterior;
-				nivel_escopo--; 
-				tabela_escopos.pop_back();
+				if($3.tipo == "int")
+					$$.traducao = $3.traducao + "\tprintf(\"%d\\n\", " + $3.label + ");\n";
+				else if($3.tipo == "float")
+					$$.traducao = $3.traducao + "\tprintf(\"%f\\n\", " + $3.label + ");\n";
+				else if($3.tipo == "char")
+					$$.traducao = $3.traducao + "\tprintf(\"%c\\n\", " + $3.label + ");\n";
+				else if($3.tipo == "bool")
+					$$.traducao = $3.traducao + "\tprintf(\"%d\\n\", " + $3.label + ");\n";
+				else if($3.tipo == "string")
+					$$.traducao = $3.traducao + "\tprintf(\"%s\\n\", " + $3.label + ");\n";
 			}
 			| /* vazio */
             {
@@ -132,9 +145,59 @@ LISTA_DEC  : LISTA_DEC DEC
             }
             ;
 
+
+BLOCO 		: '{' 
+			{
+				declaracoes_anterior.push_back(declaracoes);
+				declaracoes = "";
+				tabela_escopos.push_back(map<string, info_var>());
+				nivel_escopo++;
+			}
+			LISTA_DEC '}'
+			{
+				nivel_escopo--; 
+				string ident = tabulacao(nivel_escopo);
+				$$.traducao = ident + "{\n" +  declaracoes +  $3.traducao + ident + "}\n";
+
+				declaracoes = declaracoes_anterior.back();
+				declaracoes_anterior.pop_back();
+				tabela_escopos.pop_back();
+			}
+			;
+
+CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
+			{
+				construtor_ctrl($$, $3, $5, "if", "");
+			}
+			| TK_IF '(' E ')' BLOCO TK_ELSE BLOCO //para if c/ 1 else
+			{
+				string ident = tabulacao(nivel_escopo);
+				construtor_ctrl($$, $3, $5, "if", ident + "else " + $7.traducao);
+			}
+			| TK_IF '(' E ')' BLOCO ELSE_IF //para else if
+			{
+				construtor_ctrl($$, $3, $5, "if", $6.traducao);
+			}
+			;
+
+ELSE_IF 	: TK_ELSE_IF '(' E ')' BLOCO //para 1 else if
+			{
+				construtor_if_else($$, $3, $5, "");
+			}
+			| TK_ELSE_IF '(' E ')' BLOCO ELSE_IF//para diversos else if
+			{
+				construtor_if_else($$, $3, $5, $6.traducao);	
+			}
+			| TK_ELSE_IF '(' E ')' BLOCO TK_ELSE BLOCO //para else if c/ else
+			{
+				string ident = tabulacao(nivel_escopo);
+				construtor_if_else($$, $3, $5, ident + "else " + $7.traducao);
+			}
+			;
+
 DEC 		: TK_INT TK_ID ';'    { declarar_variavel($2.label, "int"); }
 			| TK_FLOAT TK_ID ';'  { declarar_variavel($2.label, "float"); }
-			| TK_CHAR TK_ID ';'   { declarar_variavel ($2.label, "char"); }
+			| TK_CHAR TK_ID ';'   { declarar_variavel($2.label, "char"); }
 			| TK_BOOL TK_ID ';'   { declarar_variavel($2.label, "bool"); }
 			| TK_STRING TK_ID ';' { declarar_variavel($2.label, "string"); }
 			;
@@ -339,26 +402,34 @@ void yyerror(string MSG)
 
 //funcao que fica responsável por fazer o cast
 string castGerar(string cast_tipo, string label, string& cast_traducao){
-	string temp = gentempcode(); //gera a string temporaria q vai receber o resultado do cast
-	declaracoes += "\t" + cast_tipo + " " + temp + ";\n"; //faz a declaracao dessa nova string temporaria
-	cast_traducao += "\t" + temp + " = " + "(" + cast_tipo + 
-	") " + label + ";\n"; //faz a traducao para p codigo em c da nova string temporaria. Ex: t2 = (float)t1;
-	return temp; //retorna o novo label para um dos "E", pois um deles sofre o cast e muda o nome da variável
+	string temp = gentempcode(); 
+	//gera a string temporaria q vai receber o resultado do cast
+	declaracoes += "\t" + cast_tipo + " " + temp + ";\n";
+	//faz a declaracao dessa nova string temporaria
+	cast_traducao += "\t" + temp + " = " + "(" + cast_tipo + ") " + label + ";\n";
+	 //faz a traducao para p codigo em c da nova string temporaria. Ex: t2 = (float)t1;
+	return temp; 
+	//retorna o novo label para um dos "E", pois um deles sofre o cast e 
+	//muda o nome da variável
 }
 
 void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op_tipo){
 	if(eh_tipo_numerico(d1) && eh_tipo_numerico(d3)){
-		auto cast = tabela_consulta[{d1.tipo, d3.tipo}]; //consulta a tabela para saber se será necessário fazer cast
+		auto cast = tabela_consulta[{d1.tipo, d3.tipo}]; 
+		//consulta a tabela para saber se será necessário fazer cast
 		if(op_tipo == "arit"){
-			dd.tipo = cast.resultado; //define o tipo de $$ conforme a necessidade de fazer cast ou n	
+			dd.tipo = cast.resultado; 
+			//define o tipo de $$ conforme a necessidade de fazer cast ou n	
 		}
 		else{
-			dd.tipo = "bool"; //se for operação relacional, o tipo de $$(dd) sempre será bool
+			dd.tipo = "bool"; 
+			//se for operação relacional, o tipo de $$(dd) sempre será bool
 		}
 		dd.label = gentempcode(); 
 		string cast_traducao = d1.traducao + d3.traducao; 
 		if(cast.cast_esq != ""){
-			d1.label = castGerar(cast.cast_esq, d1.label, cast_traducao); //chama a função q faz o cast caso seja necessário
+			d1.label = castGerar(cast.cast_esq, d1.label, cast_traducao); 
+			//chama a função q faz o cast caso seja necessário
 		}
 		if(cast.cast_dir != ""){
 			d3.label = castGerar(cast.cast_dir, d3.label, cast_traducao); 
@@ -367,7 +438,8 @@ void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op
 			declaracoes += "\t" + dd.tipo + " " + dd.label + ";\n";	
 		}
 		else{
-			declaracoes += "\tint " + dd.label + ";\n";	//tratamento especial para o tipo bool pq ele n existe em C
+			declaracoes += "\tint " + dd.label + ";\n";	
+			//tratamento especial para o tipo bool pq ele n existe em C
 		}
 		
 		dd.traducao = cast_traducao + "\t" + dd.label +
@@ -400,10 +472,29 @@ void op_logicos(atributos& dd, atributos& d1, atributos& d3, string op){
 	}
 }
 
+void construtor_ctrl(atributos& dd, atributos& expressao, atributos& bloco, string ctrl_tipo, string resto){
+	if(expressao.tipo != "bool"){
+		yyerror("Você está tentando usar tipo não booleano em controles de comando");
+	}
+	string ident = tabulacao(nivel_escopo);
+	dd.traducao = expressao.traducao + ident + ctrl_tipo + " (" +
+	 expressao.label + ") " + bloco.traducao + resto;
+}
+
+void construtor_if_else(atributos& dd, atributos& expressao, atributos& bloco, string resto){
+	if(expressao.tipo != "bool"){
+		yyerror("Você está tentando usar tipo não booleano em controles de comando"); 
+	}
+	string ident = tabulacao(nivel_escopo);
+	dd.traducao = ident + "else {\n" + expressao.traducao + ident +
+	"\tif(" + expressao.label + ") " + bloco.traducao + resto + ident + "}\n";
+}
+
 bool cast_valido(string destino, string origem) {
 
     if ((destino == "int" || destino == "float") && (origem == "int" || origem == "float")) 
-        	return true; // Cast entre números é permitido
+        	return true;
+			// Cast entre números é permitido
 
     return false; 
 }
@@ -432,3 +523,12 @@ info_var consultar_variavel(string nome){
 
 	return {"", ""};
 	}
+
+string tabulacao(int qtd){
+	string tabs = "";
+	qtd++;
+	for(int i = 0; i < qtd; i++){
+		tabs += "\t";
+	}
+		return tabs;
+}

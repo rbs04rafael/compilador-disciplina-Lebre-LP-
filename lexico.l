@@ -39,8 +39,14 @@ TEXTO ["][^"]*["]
 "logico"    { return TK_BOOL; }
 "texto"     { return TK_STRING; }
 
-"true"      { yylval.label = "1"; yylval.tipo = "bool"; return TK_BOOLLIT;}
-"false"     { yylval.label = "0"; yylval.tipo = "bool"; return TK_BOOLLIT;}
+"se"        { return TK_IF; }
+"senao"     { return TK_ELSE; }
+"senao se"  { return TK_ELSE_IF; }
+
+"imprima"   { return TK_PRINT; }
+
+"verdadeiro"    { yylval.label = "1"; yylval.tipo = "bool"; return TK_BOOLLIT;}
+"falso"         { yylval.label = "0"; yylval.tipo = "bool"; return TK_BOOLLIT;}
 
 {REAL}      { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM;}
 {NUM}		{ yylval.label = yytext; yylval.tipo = "int"; return TK_NUM; }

@@ -1,0 +1,9 @@
+inteiro x;
+
+x = 1;
+{
+	inteiro x;
+	x = 2;
+}
+
+x = 3;
