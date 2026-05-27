@@ -71,6 +71,7 @@ string gen_label();
 %token TK_AND TK_OR
 %token TK_IF TK_ELSE TK_ELSE_IF
 %token TK_PRINT TK_SCAN
+%token TK_WHILE TK_DO_WHILE
 
 %start S
 
@@ -214,6 +215,28 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 				+ $5.traducao + "\tgoto " + label_fim + ";\n"
 				+ label_else + ":\n" + $6.traducao
 				+ label_fim + ":\n";
+			}
+			| TK_WHILE '(' E ')' BLOCO
+			{
+				if($3.tipo != "bool")
+					yyerror("A condicao do 'enquanto' nao foi do tipo logico!");
+				string label_inicio = gen_label();
+				string label_fim = gen_label();
+				
+				$$.traducao = label_inicio + ":\n" + $3.traducao + "\tif (!" + $3.label + ") goto " + label_fim + ";\n"
+				+ $5.traducao + "\tgoto " + label_inicio + ";\n"
+				+ label_fim + ":\n"; 
+			}
+			| TK_DO_WHILE '(' E ')' BLOCO
+			{
+				if($3.tipo != "bool")
+					yyerror("A condicao do 'faca enquanto' nao foi do tipo logico!");
+				string label_inicio = gen_label();
+				string label_fim = gen_label();
+				
+				$$.traducao = label_inicio + ":\n" + $5.traducao + $3.traducao + "\tif (!" + $3.label + ") goto " + 
+				label_fim + ";\n" + "\tgoto " + label_inicio + ";\n"
+				+ label_fim + ":\n"; 
 			}
 			;
 

@@ -43,6 +43,9 @@ TEXTO ["][^"]*["]
 "senao"     { return TK_ELSE; }
 "senao se"  { return TK_ELSE_IF; }
 
+"enquanto"  { return TK_WHILE; }
+"faca enquanto" { return TK_DO_WHILE; }
+
 "imprima"   { return TK_PRINT; }
 "leia"      { return TK_SCAN; }
 
