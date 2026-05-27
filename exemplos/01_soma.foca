@@ -1,5 +1,14 @@
-se (1 > 2) {
-    imprima("verdade");
-} senao {
-    imprima("mentira");
+inteiro i;
+inteiro limite;
+
+imprima("Quantas voltas quer dar no laco?");
+leia(limite);
+
+imprima("Iniciando a contagem...");
+
+para (i = 0; i < limite; i = i + 2) {
+    imprima("Volta atual:");
+    imprima(i);
 }
+
+imprima("Fim do laco!");

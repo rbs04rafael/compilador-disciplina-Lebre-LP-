@@ -45,6 +45,8 @@ TEXTO ["][^"]*["]
 
 "enquanto"  { return TK_WHILE; }
 "faca enquanto" { return TK_DO_WHILE; }
+"para"      { return TK_FOR; }
+"++"        { return TK_INC; }
 
 "imprima"   { return TK_PRINT; }
 "leia"      { return TK_SCAN; }
