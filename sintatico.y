@@ -71,7 +71,7 @@ info_var consultar_variavel(string nome);
 %token TK_MAI TK_MEI  TK_II TK_DF
 %token TK_AND TK_OR
 %token TK_IF TK_ELSE TK_ELSE_IF
-%token TK_PRINT
+%token TK_PRINT TK_SCAN
 
 %start S
 
@@ -123,21 +123,37 @@ LISTA_DEC  : LISTA_DEC DEC
 			{
 				$$.traducao = $1.traducao + $2.traducao;
 			}
-			| TK_PRINT '(' E ')' ';'
+			| LISTA_DEC TK_PRINT '(' E ')' ';'
 			{
 				$$.label = "";
 				$$.tipo = "";
 
-				if($3.tipo == "int")
-					$$.traducao = $3.traducao + "\tprintf(\"%d\\n\", " + $3.label + ");\n";
-				else if($3.tipo == "float")
-					$$.traducao = $3.traducao + "\tprintf(\"%f\\n\", " + $3.label + ");\n";
-				else if($3.tipo == "char")
-					$$.traducao = $3.traducao + "\tprintf(\"%c\\n\", " + $3.label + ");\n";
-				else if($3.tipo == "bool")
-					$$.traducao = $3.traducao + "\tprintf(\"%d\\n\", " + $3.label + ");\n";
-				else if($3.tipo == "string")
-					$$.traducao = $3.traducao + "\tprintf(\"%s\\n\", " + $3.label + ");\n";
+				if($4.tipo == "int")
+					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%d\\n\", " + $4.label + ");\n";
+				else if($4.tipo == "float")
+					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%f\\n\", " + $4.label + ");\n";
+				else if($4.tipo == "char")
+					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%c\\n\", " + $4.label + ");\n";
+				else if($4.tipo == "bool")
+					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%d\\n\", " + $4.label + ");\n";
+				else if($4.tipo == "string")
+					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%s\\n\", " + $4.label + ");\n";
+			}
+			| LISTA_DEC TK_SCAN '(' TK_ID ')' ';'
+			{
+				auto info = consultar_variavel($4.label);
+
+				if(info.tipo == "int")
+					$$.traducao = $1.traducao + "\tscanf(\"%d\", &" + info.temp + ");\n";
+				else if(info.tipo == "float")
+					$$.traducao = $1.traducao + "\tscanf(\"%f\", &" + info.temp + ");\n";
+				else if(info.tipo == "char")
+					$$.traducao = $1.traducao + "\tscanf(\"%c\", &" + info.temp + ");\n";
+				else if(info.tipo == "bool")
+					$$.traducao = $1.traducao + "\tscanf(\"%d\", &" + info.temp + ");\n";
+				else if(info.tipo == "string")
+					$$.traducao = $1.traducao + "\t" + info.temp + " = (char*) malloc(256);\n"
+					+ "\tscanf(\" %[^\\n]\", " + info.temp + ");\n";
 			}
 			| /* vazio */
             {

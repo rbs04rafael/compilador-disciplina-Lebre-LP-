@@ -44,6 +44,7 @@ TEXTO ["][^"]*["]
 "senao se"  { return TK_ELSE_IF; }
 
 "imprima"   { return TK_PRINT; }
+"leia"      { return TK_SCAN; }
 
 "verdadeiro"    { yylval.label = "1"; yylval.tipo = "bool"; return TK_BOOLLIT;}
 "falso"         { yylval.label = "0"; yylval.tipo = "bool"; return TK_BOOLLIT;}
