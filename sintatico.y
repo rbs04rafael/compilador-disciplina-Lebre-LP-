@@ -9,6 +9,7 @@
 using namespace std;
 
 int var_temp_qnt;
+int label_count = 0;
 int linha = 1;
 int erro_count = 0; 
 int nivel_escopo = 0;
@@ -54,16 +55,14 @@ struct atributos
 int yylex(void);
 void yyerror(string);
 string gentempcode();
-string tabulacao(int); //calcula a tabulacao de acordo com o nivel do escopo
 string castGerar(string, string, string&); //função responsável pelo cast
 void operacoes(atributos&, atributos&, atributos&, string, string); //função responsável pelas operações artiméticas e relacionais
 void op_logicos(atributos&, atributos&, atributos&, string); //função responsável pelas operações lógicas
-void construtor_ctrl(atributos&, atributos&, atributos&, string, string); //função que constroi os comandos de controle
-void construtor_if_else(atributos&, atributos&, atributos&, string);
 bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
 bool cast_valido(string destino, string origem); //função que determina se um cast é válido ou não, usada para validar o cast explícito
 void declarar_variavel(string nome, string tipo);
 info_var consultar_variavel(string nome);
+string gen_label();
 %}
 
 %token TK_NUM TK_CHARLITERAL TK_BOOLLIT TK_STRINGLITERAL
@@ -172,8 +171,7 @@ BLOCO 		: '{'
 			LISTA_DEC '}'
 			{
 				nivel_escopo--; 
-				string ident = tabulacao(nivel_escopo);
-				$$.traducao = ident + "{\n" +  declaracoes +  $3.traducao + ident + "}\n";
+				$$.traducao = declaracoes +  $3.traducao;
 
 				declaracoes = declaracoes_anterior.back();
 				declaracoes_anterior.pop_back();
@@ -183,31 +181,77 @@ BLOCO 		: '{'
 
 CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 			{
-				construtor_ctrl($$, $3, $5, "if", "");
+				if ($3.tipo != "bool") 
+        			yyerror("A condicao do 'se' nao foi do tipo logico!");
+				
+				string label_fim = gen_label();
+				$$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + label_fim + ";\n"
+				+ $5.traducao 
+				+ label_fim + ";\n";
 			}
 			| TK_IF '(' E ')' BLOCO TK_ELSE BLOCO //para if c/ 1 else
 			{
-				string ident = tabulacao(nivel_escopo);
-				construtor_ctrl($$, $3, $5, "if", ident + "else " + $7.traducao);
+				if ($3.tipo != "bool") 
+        			yyerror("A condicao do 'se' nao foi do tipo logico!");
+				
+				string label_else = gen_label();
+				string label_fim = gen_label();
+
+				$$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + label_else + ";\n"
+				+ $5.traducao + "\tgoto "+ label_fim + ";\n"
+				+ label_else + ":\n" + $7.traducao
+				+ label_fim + ":\n";
 			}
 			| TK_IF '(' E ')' BLOCO ELSE_IF //para else if
 			{
-				construtor_ctrl($$, $3, $5, "if", $6.traducao);
+				if ($3.tipo != "bool") 
+        			yyerror("A condicao do 'se' nao foi do tipo logico!");
+
+				string label_else = gen_label();
+				string label_fim = gen_label();
+
+				$$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + label_else + ";\n"
+				+ $5.traducao + "\tgoto " + label_fim + ";\n"
+				+ label_else + ":\n" + $6.traducao
+				+ label_fim + ":\n";
 			}
 			;
 
 ELSE_IF 	: TK_ELSE_IF '(' E ')' BLOCO //para 1 else if
 			{
-				construtor_if_else($$, $3, $5, "");
+				if ($3.tipo != "bool") 
+					yyerror("A condicao usada nao foi do tipo logico!");
+
+    			string label_fim = gen_label();
+
+				$$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + label_fim + ";\n" + 
+                  $5.traducao + label_fim + ":\n";
 			}
 			| TK_ELSE_IF '(' E ')' BLOCO ELSE_IF//para diversos else if
 			{
-				construtor_if_else($$, $3, $5, $6.traducao);	
+				if ($3.tipo != "bool") 
+					yyerror("A condicao usada nao foi do tipo logico!");
+
+				string label_else = gen_label();
+    			string label_fim = gen_label();
+
+				$$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + label_else + ";\n" + 
+                  $5.traducao + "\tgoto " + label_fim + ";\n" 
+				  + label_else + ":\n" + $6.traducao 
+				  + label_fim + ":\n";
 			}
 			| TK_ELSE_IF '(' E ')' BLOCO TK_ELSE BLOCO //para else if c/ else
 			{
-				string ident = tabulacao(nivel_escopo);
-				construtor_if_else($$, $3, $5, ident + "else " + $7.traducao);
+				if ($3.tipo != "bool") 
+        			yyerror("A condicao do 'se' nao foi do tipo logico!");
+				
+				string label_else = gen_label();
+				string label_fim = gen_label();
+
+				$$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + label_else + ";\n"
+				+ $5.traducao + "\tgoto "+ label_fim + ";\n"
+				+ label_else + ":\n" + $7.traducao
+				+ label_fim + ":\n";
 			}
 			;
 
@@ -397,6 +441,11 @@ string gentempcode()
 	return "t" + to_string(var_temp_qnt);
 }
 
+string gen_label()
+{
+		return "L" + to_string(label_count++);
+}
+
 int main(int argc, char* argv[])
 {
 	var_temp_qnt = 0;
@@ -488,24 +537,6 @@ void op_logicos(atributos& dd, atributos& d1, atributos& d3, string op){
 	}
 }
 
-void construtor_ctrl(atributos& dd, atributos& expressao, atributos& bloco, string ctrl_tipo, string resto){
-	if(expressao.tipo != "bool"){
-		yyerror("Você está tentando usar tipo não booleano em controles de comando");
-	}
-	string ident = tabulacao(nivel_escopo);
-	dd.traducao = expressao.traducao + ident + ctrl_tipo + " (" +
-	 expressao.label + ") " + bloco.traducao + resto;
-}
-
-void construtor_if_else(atributos& dd, atributos& expressao, atributos& bloco, string resto){
-	if(expressao.tipo != "bool"){
-		yyerror("Você está tentando usar tipo não booleano em controles de comando"); 
-	}
-	string ident = tabulacao(nivel_escopo);
-	dd.traducao = ident + "else {\n" + expressao.traducao + ident +
-	"\tif(" + expressao.label + ") " + bloco.traducao + resto + ident + "}\n";
-}
-
 bool cast_valido(string destino, string origem) {
 
     if ((destino == "int" || destino == "float") && (origem == "int" || origem == "float")) 
@@ -539,12 +570,3 @@ info_var consultar_variavel(string nome){
 
 	return {"", ""};
 	}
-
-string tabulacao(int qtd){
-	string tabs = "";
-	qtd++;
-	for(int i = 0; i < qtd; i++){
-		tabs += "\t";
-	}
-		return tabs;
-}

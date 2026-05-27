@@ -1,2 +1,5 @@
-texto a;
-leia(a);
+se (1 > 2) {
+    imprima("verdade");
+} senao {
+    imprima("mentira");
+}
