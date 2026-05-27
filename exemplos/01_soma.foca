@@ -1,5 +1,1 @@
-se (1 > 2) {
-    imprima("verdade");
-} senao {
-    imprima("mentira");
-}
+imprima("oi");

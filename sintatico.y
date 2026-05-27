@@ -285,21 +285,24 @@ P       	: TK_NUM
         	}
         	| TK_CHARLITERAL
         	{
-        		$$.label = $1.label;
+        		$$.label = gentempcode();
         		$$.tipo = "char";
-        		$$.traducao = "";
+				declaracoes += "\tchar " + $$.label + ";\n";
+        		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
         	| TK_BOOLLIT
         	{
-        		$$.label = $1.label;
+        		$$.label = gentempcode();
         		$$.tipo = "bool";
-        		$$.traducao = "";
+				declaracoes += "\tint " + $$.label + ";\n";
+        		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
 			| TK_STRINGLITERAL
         	{
-        		$$.label = $1.label;
+        		$$.label = gentempcode();
         		$$.tipo = "string";
-        		$$.traducao = "";
+				declaracoes += "\tchar* " + $$.label + ";\n";
+        		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
         	| '(' E ')'
         	{
