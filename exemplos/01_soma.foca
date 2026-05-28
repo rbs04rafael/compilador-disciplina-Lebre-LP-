@@ -1,5 +1,7 @@
-se (1 > 2) {
-    imprima("verdade");
-} senao {
-    imprima("mentira");
+inteiro contador;
+contador = 0;
+
+enquanto(contador < 10){
+    imprima("compilador");
+    contador = contador + 1;
 }
