@@ -71,7 +71,7 @@ string gen_label();
 %token TK_AND TK_OR
 %token TK_IF TK_ELSE TK_ELSE_IF
 %token TK_PRINT TK_SCAN
-%token TK_WHILE TK_DO_WHILE
+%token TK_WHILE TK_DO_WHILE TK_FOR TK_INC
 
 %start S
 
@@ -215,7 +215,7 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 			| TK_IF '(' E ')' BLOCO TK_ELSE BLOCO //para if c/ 1 else
 			{
 				if ($3.tipo != "bool") 
-        			yyerror("A condicao do 'se' nao foi do tipo logico!");
+        			yyerror("A condicao do 'se/senao' nao foi do tipo logico!");
 				
 				string label_else = gen_label();
 				string label_fim = gen_label();
@@ -228,7 +228,7 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 			| TK_IF '(' E ')' BLOCO ELSE_IF //para else if
 			{
 				if ($3.tipo != "bool") 
-        			yyerror("A condicao do 'se' nao foi do tipo logico!");
+        			yyerror("A condicao do 'se/senao se' nao foi do tipo logico!");
 
 				string label_else = gen_label();
 				string label_fim = gen_label();
@@ -259,6 +259,57 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 				$$.traducao = label_inicio + ":\n" + $5.traducao + $3.traducao + "\tif (!" + $3.label + ") goto " + 
 				label_fim + ";\n" + "\tgoto " + label_inicio + ";\n"
 				+ label_fim + ":\n"; 
+			}
+			| TK_FOR '(' ATRIBUICAO ';' E ';' ATRIBUICAO ')' BLOCO
+			{
+				if($5.tipo != "bool")
+					yyerror("A condicao do 'para' nao foi do tipo logico!");
+
+				string label_inicio = gen_label();
+				string label_fim = gen_label();
+				
+				$$.traducao = $3.traducao + label_inicio + ":\n"
+				+ $5.traducao + "\tif (!" + $5.label + ") goto " + label_fim + ";\n"
+				+ $9.traducao + $7.traducao
+				+ "\tgoto " + label_inicio + ";\n"
+				+ label_fim + ":\n"; 
+			}
+			;
+ATRIBUICAO  : TK_ID '=' E 
+			{
+				auto info = consultar_variavel($1.label); 
+        			$$.label = info.temp;
+        			$$.tipo = info.tipo;
+
+					if(info.tipo == "string"){
+						$$.traducao = $3.traducao + "\t" + $$.label + " = " + "(char*) malloc(tamString(" + $3.label+ ") + 1);\n" 
+						+ "\tstrcpy(" + $$.label + ", " + $3.label + ");\n";
+
+					}else{
+
+					if(info.tipo == "bool" && $3.tipo != "bool")
+						yyerror("bool recebendo numerico");
+					
+					if(info.tipo == "int" && $3.tipo == "bool")
+						yyerror("numerico recebendo bool");
+					
+					if(info.tipo == "float" && $3.tipo == "bool")
+						yyerror("numerico recebendo bool");
+					
+        			// Verifica se os tipos são diferentes 
+        			if (info.tipo != $3.tipo) {
+            			if (info.tipo == "float" && $3.tipo == "int") 
+                			$3.label = castGerar("float", $3.label, $3.traducao); 
+            			else if (info.tipo == "int" && $3.tipo == "float") 
+                			$3.label = castGerar("int", $3.label, $3.traducao);
+						}	
+        			$$.traducao = $3.traducao + "\t" + $$.label + " = " + $3.label + ";\n";
+					}
+			}
+			| TK_ID TK_INC
+			{
+				auto info = consultar_variavel($1.label);
+				$$.traducao = "\t" + info.temp + " = " + info.temp + " + 1;\n";
 			}
 			;
 
@@ -330,22 +381,25 @@ P       	: TK_NUM
         	}
         	| TK_CHARLITERAL
         	{
-        		$$.label = $1.label;
+        		$$.label = gentempcode();
         		$$.tipo = "char";
-        		$$.traducao = "";
+				declaracoes += "\tchar " + $$.label + ";\n";
+        		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
         	| TK_BOOLLIT
         	{
-        		$$.label = $1.label;
+        		$$.label = gentempcode();
         		$$.tipo = "bool";
-        		$$.traducao = "";
+				declaracoes += "\tint " + $$.label + ";\n";
+        		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
 			| TK_STRINGLITERAL
         	{
-        		$$.label = $1.label;
+        		$$.label = gentempcode();
         		$$.tipo = "string";
-        		$$.traducao = "";
-        	}
+				declaracoes += "\tchar* " + $$.label + ";\n";
+        		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+      	}
         	| '(' E ')'
         	{
         		$$.label = $2.label;
@@ -440,39 +494,12 @@ E 			: E '+' E
 				$$.tipo = $1.tipo;
 				$$.traducao = $1.traducao;
 			}
-			| TK_ID '=' E 
+			| ATRIBUICAO 
 			{
-        			auto info = consultar_variavel($1.label); 
-        			$$.label = info.temp;
-        			$$.tipo = info.tipo;
-
-					if(info.tipo == "string"){
-						$$.traducao = $3.traducao + "\t" + $$.label + " = " + "(char*) malloc(tamString(" + $3.label+ ") + 1);\n" 
-						+ "\tstrcpy(" + $$.label + ", " + $3.label + ");\n";
-
-					}else{
-
-					if(info.tipo == "bool" && $3.tipo != "bool")
-						yyerror("bool recebendo numerico");
-					
-					if(info.tipo == "int" && $3.tipo == "bool")
-						yyerror("numerico recebendo bool");
-					
-					if(info.tipo == "float" && $3.tipo == "bool")
-						yyerror("numerico recebendo bool");
-					
-        			// Verifica se os tipos são diferentes 
-        			if (info.tipo != $3.tipo) {
-            			if (info.tipo == "float" && $3.tipo == "int") 
-                			$3.label = castGerar("float", $3.label, $3.traducao); 
-            			else if (info.tipo == "int" && $3.tipo == "float") 
-                			$3.label = castGerar("int", $3.label, $3.traducao);
-				}	
-        			$$.traducao = $3.traducao + "\t" + $$.label + " = " + $3.label + ";\n";
+        		$$.label = $1.label;
+                $$.tipo = $1.tipo;
+                $$.traducao = $1.traducao;	
 			}
-			}
-			
-			
 
 %%
 
