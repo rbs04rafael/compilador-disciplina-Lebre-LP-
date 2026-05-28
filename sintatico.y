@@ -97,7 +97,29 @@ S           : LISTA_DEC
 						
 									"\treturn i;\n"
 								"}\n\n"
-								
+								"int comparaString(char* s1, char* s2){\n"
+								"	int t_idx = 0;\n"
+								"	char t_c1;\n"
+								"	char t_c2;\n"
+								"	int t_diff;\n"
+								"	int t_fim;\n"
+								"	int t_soma;\n"
+								"L_inicio:\n"
+								"	t_c1 = s1[t_idx];\n"
+								"	t_c2 = s2[t_idx];\n"
+								"	t_diff = t_c1 != t_c2;\n"
+								"	if(!t_diff) goto L_continua;\n"
+								"	return 0;\n"
+								"L_continua:\n"
+								"	t_fim = t_c1 == 0;\n"
+								"	if(!t_fim) goto L_proximo;\n"
+								"	return 1;\n"
+								"L_proximo:\n"
+								"	t_soma = t_idx + 1;\n"
+								"	t_idx = t_soma;\n"
+								"	goto L_inicio;\n"
+								"}\n\n"
+
                                 "int main(void) {\n";
 
                 codigo_gerado += declaracoes + "\n" + $1.traducao;
@@ -188,7 +210,7 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 				string label_fim = gen_label();
 				$$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + label_fim + ";\n"
 				+ $5.traducao 
-				+ label_fim + ";\n";
+				+ label_fim + ":\n";
 			}
 			| TK_IF '(' E ')' BLOCO TK_ELSE BLOCO //para if c/ 1 else
 			{
@@ -532,6 +554,13 @@ void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op
 		
 		dd.traducao = cast_traducao + "\t" + dd.label +
 		" = " + d1.label + " " + op + " " + d3.label + ";\n";
+	}
+	else if(d1.tipo == "string" && d3.tipo == "string" && op == "=="){
+		dd.tipo = "bool";
+		dd.label = gentempcode();
+		declaracoes += "\tint " + dd.label + ";\n";
+		dd.traducao = d1.traducao + d3.traducao + "\t" + dd.label +
+		 " = comparaString( " + d1.label + ", " + d3.label + " );\n";
 	}
 	else{
 		yyerror("você está tentando operar com tipos nao numericos");
