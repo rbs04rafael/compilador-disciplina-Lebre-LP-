@@ -1,22 +1,21 @@
-inteiro contador;
-contador = 0;
+inteiro opcao;
+inteiro subopcao;
 
-enquanto(contador < 10){
-    imprima("compilador");
-    contador = contador + 1;
-}
+imprima("--- MENU PRINCIPAL ---");
+imprima("1. Bebidas");
+imprima("2. Comidas");
+imprima("Escolha uma opcao: ");
+leia(opcao);
 
-inteiro i;
-inteiro limite;
+escolha (opcao) {
+    caso 1: {
+        imprima("Voce escolheu Bebidas.");
+        pare;
+    }
+    padrao: {
+        imprima("Opcao invalida");
+    }
+    }
 
-imprima("Quantas voltas quer dar no laco?");
-leia(limite);
 
-imprima("Iniciando a contagem...");
-
-para (i = 0; i < limite; i = i + 2) {
-    imprima("Volta atual:");
-    imprima(i);
-}
-
-imprima("Fim do laco!");
+imprima("Fim do programa!");

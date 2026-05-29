@@ -16,6 +16,8 @@ int nivel_escopo = 0;
 string codigo_gerado;
 string declaracoes;
 vector<string> declaracoes_anterior;
+vector<string> pilha_switch_temp;
+vector<string> pilha_switch_fim;
 
 struct info_var{
 	string temp;
@@ -72,6 +74,7 @@ string gen_label();
 %token TK_IF TK_ELSE TK_ELSE_IF
 %token TK_PRINT TK_SCAN
 %token TK_WHILE TK_DO_WHILE TK_FOR TK_INC
+%token TK_SWITCH TK_CASE TK_DEFAULT TK_BREAK
 
 %start S
 
@@ -274,6 +277,50 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 				+ "\tgoto " + label_inicio + ";\n"
 				+ label_fim + ":\n"; 
 			}
+			| TK_SWITCH '(' E ')' '{' 
+			{
+    			pilha_switch_temp.push_back($3.label);
+    			pilha_switch_fim.push_back(gen_label());
+			} 
+			CASOS '}'
+			{
+    		$$.traducao = $3.traducao + $7.traducao + pilha_switch_fim.back() + ":\n";
+    		pilha_switch_temp.pop_back();
+    		pilha_switch_fim.pop_back();
+			}
+			| TK_BREAK ';'
+        	{
+        		if (pilha_switch_fim.empty()) 
+        			yyerror("O 'pare' so pode ser usado dentro de um laco ou escolha");
+				else 
+        			$$.traducao = "\tgoto " + pilha_switch_fim.back() + ";\n";
+      		}
+			;
+CASO   	: TK_CASE E ':' LISTA_DEC
+			{
+				string temp_switch = pilha_switch_temp.back();
+				string temp_cmp = gentempcode();
+				declaracoes += "\tint " + temp_cmp + ";\n";
+
+				string label_proximo = gen_label();
+
+				$$.traducao = $2.traducao + "\t" + temp_cmp + " = " + temp_switch + " == " + $2.label + ";\n"
+				+ "\tif (!" + temp_cmp + ") goto " + label_proximo + ";\n" 
+				+ $4.traducao + label_proximo + ":\n";
+			}
+			;
+CASOS  		: CASO CASOS
+			{
+    			$$.traducao = $1.traducao + $2.traducao;
+			}
+			| CASO
+			{
+				$$.traducao = $1.traducao;
+			}
+			| TK_DEFAULT ':' LISTA_DEC
+			{
+				$$.traducao = $3.traducao;
+			}
 			;
 ATRIBUICAO  : TK_ID '=' E 
 			{
@@ -286,22 +333,14 @@ ATRIBUICAO  : TK_ID '=' E
 						+ "\tstrcpy(" + $$.label + ", " + $3.label + ");\n";
 
 					}else{
-
-					if(info.tipo == "bool" && $3.tipo != "bool")
-						yyerror("bool recebendo numerico");
-					
-					if(info.tipo == "int" && $3.tipo == "bool")
-						yyerror("numerico recebendo bool");
-					
-					if(info.tipo == "float" && $3.tipo == "bool")
-						yyerror("numerico recebendo bool");
-					
         			// Verifica se os tipos são diferentes 
         			if (info.tipo != $3.tipo) {
             			if (info.tipo == "float" && $3.tipo == "int") 
                 			$3.label = castGerar("float", $3.label, $3.traducao); 
             			else if (info.tipo == "int" && $3.tipo == "float") 
                 			$3.label = castGerar("int", $3.label, $3.traducao);
+						else 
+						 yyerror("tipos incompativeis para atribuicao"); 
 						}	
         			$$.traducao = $3.traducao + "\t" + $$.label + " = " + $3.label + ";\n";
 					}
@@ -399,7 +438,7 @@ P       	: TK_NUM
         		$$.tipo = "string";
 				declaracoes += "\tchar* " + $$.label + ";\n";
         		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
-      	}
+      		}
         	| '(' E ')'
         	{
         		$$.label = $2.label;
@@ -424,11 +463,14 @@ P       	: TK_NUM
 					yyerror("Conversão inválida de " + $4.tipo + " para " + $2.label);
 				}
 				else{
+				string tipo_origem_c = ($4.tipo == "bool") ? "int" : ($4.tipo == "string") ? "char*" : $4.tipo;
+				string tipo_destino_c = ($2.label == "bool") ? "int" : ($2.label == "string") ? "char*" : $2.label;
+
 				string temp_original = gentempcode(); // Cria temporária para o tipo original
-				declaracoes += "\t" + $4.tipo + " " + temp_original + ";\n"; // Declara a temporária original com o tipo do E
+				declaracoes += "\t" + tipo_origem_c + " " + temp_original + ";\n"; // Declara a temporária original com o tipo do E
 
 				string temp_cast = gentempcode(); // Cria temporária para o resultado do cast
-				declaracoes += "\t" + $2.label + " " + temp_cast + ";\n"; // Declara a temporária cast com o tipo do cast
+				declaracoes += "\t" + tipo_destino_c + " " + temp_cast + ";\n"; // Declara a temporária cast com o tipo do cast
 
 				$$.label = temp_cast; 
 				$$.tipo = $2.label;

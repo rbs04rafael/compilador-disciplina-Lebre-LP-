@@ -31,7 +31,7 @@ TEXTO ["][^"]*["]
 "&&"        { return TK_AND; }
 "||"        { return TK_OR; }
 
-[-+*/()=;><!{}]	{ return *yytext; }
+[-+*/()=;><!{}:]	{ return *yytext; }
 
 "real"      { return TK_FLOAT; }
 "inteiro"   { return TK_INT; }
@@ -42,6 +42,11 @@ TEXTO ["][^"]*["]
 "se"        { return TK_IF; }
 "senao"     { return TK_ELSE; }
 "senao se"  { return TK_ELSE_IF; }
+
+"escolha"   { return TK_SWITCH; }
+"caso"      { return TK_CASE; }
+"padrao"    { return TK_DEFAULT; }
+"pare"      { return TK_BREAK; }
 
 "enquanto"  { return TK_WHILE; }
 "faca enquanto" { return TK_DO_WHILE; }
