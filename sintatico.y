@@ -17,7 +17,8 @@ string codigo_gerado;
 string declaracoes;
 vector<string> declaracoes_anterior;
 vector<string> pilha_switch_temp;
-vector<string> pilha_switch_fim;
+vector<string> pilha_break;
+vector<string> pilha_continue;
 
 struct info_var{
 	string temp;
@@ -74,7 +75,7 @@ string gen_label();
 %token TK_IF TK_ELSE TK_ELSE_IF
 %token TK_PRINT TK_SCAN
 %token TK_WHILE TK_DO_WHILE TK_FOR TK_INC
-%token TK_SWITCH TK_CASE TK_DEFAULT TK_BREAK
+%token TK_SWITCH TK_CASE TK_DEFAULT TK_BREAK TK_CONTINUE
 
 %start S
 
@@ -241,60 +242,90 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 				+ label_else + ":\n" + $6.traducao
 				+ label_fim + ":\n";
 			}
-			| TK_WHILE '(' E ')' BLOCO
+			| TK_WHILE '(' E ')' 
+			{
+				pilha_continue.push_back(gen_label());
+				pilha_break.push_back(gen_label());
+			}
+			BLOCO
 			{
 				if($3.tipo != "bool")
 					yyerror("A condicao do 'enquanto' nao foi do tipo logico!");
-				string label_inicio = gen_label();
-				string label_fim = gen_label();
+				string label_inicio = pilha_continue.back();
+				string label_fim = pilha_break.back();
 				
-				$$.traducao = label_inicio + ":\n" + $3.traducao + "\tif (!" + $3.label + ") goto " + label_fim + ";\n"
-				+ $5.traducao + "\tgoto " + label_inicio + ";\n"
-				+ label_fim + ":\n"; 
+				$$.traducao = label_inicio + ":\n" + $3.traducao + "\tif (!" + $3.label + ") goto " +
+				 label_fim + ";\n" + $6.traducao + "\tgoto " + label_inicio + ";\n"
+				 + label_fim + ":\n"; 
+				pilha_continue.pop_back();
+				pilha_break.pop_back();
 			}
-			| TK_DO_WHILE '(' E ')' BLOCO
+			| TK_DO_WHILE '(' E ')'
+			{
+				pilha_continue.push_back(gen_label());
+				pilha_break.push_back(gen_label());
+			}
+			BLOCO
 			{
 				if($3.tipo != "bool")
 					yyerror("A condicao do 'faca enquanto' nao foi do tipo logico!");
 				string label_inicio = gen_label();
-				string label_fim = gen_label();
+				string label_fim = pilha_break.back();
 				
-				$$.traducao = label_inicio + ":\n" + $5.traducao + $3.traducao + "\tif (!" + $3.label + ") goto " + 
-				label_fim + ";\n" + "\tgoto " + label_inicio + ";\n"
-				+ label_fim + ":\n"; 
+				$$.traducao = label_inicio + ":\n" + $6.traducao + pilha_continue.back() + ":\n" +
+				 $3.traducao + "\tif (!" + $3.label + ") goto " + label_fim + ";\n" + 
+				 "\tgoto " + label_inicio + ";\n" + label_fim + ":\n"; 
+				pilha_continue.pop_back();
+				pilha_break.pop_back();
 			}
-			| TK_FOR '(' ATRIBUICAO ';' E ';' ATRIBUICAO ')' BLOCO
+			| TK_FOR '(' ATRIBUICAO ';' E ';' ATRIBUICAO ')' 
+			{
+				pilha_continue.push_back(gen_label());
+				pilha_break.push_back(gen_label());
+			}
+			BLOCO
 			{
 				if($5.tipo != "bool")
 					yyerror("A condicao do 'para' nao foi do tipo logico!");
 
 				string label_inicio = gen_label();
-				string label_fim = gen_label();
+				string label_fim = pilha_break.back();
 				
 				$$.traducao = $3.traducao + label_inicio + ":\n"
 				+ $5.traducao + "\tif (!" + $5.label + ") goto " + label_fim + ";\n"
-				+ $9.traducao + $7.traducao
+				+ $10.traducao + pilha_continue.back() + ":\n" + $7.traducao
 				+ "\tgoto " + label_inicio + ";\n"
 				+ label_fim + ":\n"; 
+				pilha_continue.pop_back();
+				pilha_break.pop_back();
 			}
 			| TK_SWITCH '(' E ')' '{' 
 			{
     			pilha_switch_temp.push_back($3.label);
-    			pilha_switch_fim.push_back(gen_label());
+    			pilha_break.push_back(gen_label());
 			} 
 			CASOS '}'
 			{
-    		$$.traducao = $3.traducao + $7.traducao + pilha_switch_fim.back() + ":\n";
+    		$$.traducao = $3.traducao + $7.traducao + pilha_break.back() + ":\n";
     		pilha_switch_temp.pop_back();
-    		pilha_switch_fim.pop_back();
+    		pilha_break.pop_back();
 			}
 			| TK_BREAK ';'
         	{
-        		if (pilha_switch_fim.empty()) 
+        		if (pilha_break.empty()) 
         			yyerror("O 'pare' so pode ser usado dentro de um laco ou escolha");
 				else 
-        			$$.traducao = "\tgoto " + pilha_switch_fim.back() + ";\n";
+        			$$.traducao = "\tgoto " + pilha_break.back() + ";\n";
       		}
+			| TK_CONTINUE ';'
+			{
+				if(pilha_continue.empty()){
+					yyerror("O 'continua' so pode ser usado dentro de um laco");
+				}
+				else{
+					$$.traducao = "\tgoto " + pilha_continue.back() + ";\n";
+				}
+			}
 			;
 CASO   	: TK_CASE E ':' LISTA_DEC
 			{

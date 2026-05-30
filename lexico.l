@@ -47,6 +47,7 @@ TEXTO ["][^"]*["]
 "caso"      { return TK_CASE; }
 "padrao"    { return TK_DEFAULT; }
 "pare"      { return TK_BREAK; }
+"continua"  { return TK_CONTINUE; }
 
 "enquanto"  { return TK_WHILE; }
 "faca enquanto" { return TK_DO_WHILE; }
