@@ -95,11 +95,17 @@ S           : LISTA_DEC
 								"#include <stdlib.h>\n"
 								"#include <string.h>\n\n"
 								"int tamString(char* s){\n"
-									"\tint i = 0;\n"
-									"\twhile(s[i] != '\\0')\n"
-										"\t\ti++;\n"
-						
-									"\treturn i;\n"
+									"\tint t_len = 0;\n"
+									"\tchar t_char;\n"
+									"\tint t_cond;\n"
+								"L_LOOP_STR:\n"
+									"\tt_char = s[t_len];\n"
+									"\tt_cond = t_char != '\\0';\n"
+									"\tif (!t_cond) goto L_FIM_STR;\n"
+									"\tt_len = t_len + 1;\n"
+									"\tgoto L_LOOP_STR;\n"
+								"L_FIM_STR:\n"
+									"\treturn t_len;\n"
 								"}\n\n"
 								"int comparaString(char* s1, char* s2){\n"
 								"	int t_idx = 0;\n"
@@ -135,7 +141,7 @@ S           : LISTA_DEC
 
 LISTA_DEC  : LISTA_DEC DEC
             {
-                $$.traducao = $1.traducao;
+                $$.traducao = $1.traducao + $2.traducao;
             }
             | LISTA_DEC E ';'
             {
@@ -149,44 +155,104 @@ LISTA_DEC  : LISTA_DEC DEC
 			{
 				$$.traducao = $1.traducao + $2.traducao;
 			}
-			| LISTA_DEC TK_PRINT '(' E ')' ';'
+			| LISTA_DEC TK_PRINT '(' PRINT_ARGS ')' ';'
 			{
-				$$.label = "";
-				$$.tipo = "";
-
-				if($4.tipo == "int")
-					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%d\\n\", " + $4.label + ");\n";
-				else if($4.tipo == "float")
-					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%f\\n\", " + $4.label + ");\n";
-				else if($4.tipo == "char")
-					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%c\\n\", " + $4.label + ");\n";
-				else if($4.tipo == "bool")
-					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%d\\n\", " + $4.label + ");\n";
-				else if($4.tipo == "string")
-					$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"%s\\n\", " + $4.label + ");\n";
+				$$.traducao = $1.traducao + $4.traducao + "\tprintf(\"\\n\");\n";
 			}
-			| LISTA_DEC TK_SCAN '(' TK_ID ')' ';'
+			| LISTA_DEC TK_SCAN '(' SCAN_ARGS ')' ';'
 			{
-				auto info = consultar_variavel($4.label);
-
-				if(info.tipo == "int")
-					$$.traducao = $1.traducao + "\tscanf(\"%d\", &" + info.temp + ");\n";
-				else if(info.tipo == "float")
-					$$.traducao = $1.traducao + "\tscanf(\"%f\", &" + info.temp + ");\n";
-				else if(info.tipo == "char")
-					$$.traducao = $1.traducao + "\tscanf(\"%c\", &" + info.temp + ");\n";
-				else if(info.tipo == "bool")
-					$$.traducao = $1.traducao + "\tscanf(\"%d\", &" + info.temp + ");\n";
-				else if(info.tipo == "string")
-					$$.traducao = $1.traducao + "\t" + info.temp + " = (char*) malloc(256);\n"
-					+ "\tscanf(\" %[^\\n]\", " + info.temp + ");\n";
+				$$.traducao = $1.traducao + $4.traducao;
 			}
 			| /* vazio */
             {
                 $$.traducao = "";
             }
             ;
+SCAN_ARGS 	: SCAN_ARGS ',' TK_ID
+			{
+    			auto info = consultar_variavel($3.label);
+    			string formato = "";
+    
+   				if (info.tipo == "int" || info.tipo == "bool") formato = "%d";
+    			else if (info.tipo == "float") formato = "%f";
+				else if (info.tipo == "char") formato = "%c";
 
+				if(info.tipo == "string"){
+					string temp_cond = gentempcode();
+					string temp_malloc = gentempcode();
+    				string label_skip = gen_label();
+					declaracoes += "\tint " + temp_cond + ";\n";
+					declaracoes += "\tvoid* " + temp_malloc + ";\n";
+
+					$$.traducao = $1.traducao + "\t" + temp_cond + " = " + info.temp + " != NULL;\n" +
+					"\tif (!" + temp_cond + ") goto " + label_skip + ";\n" +
+					"\tfree(" + info.temp + ");\n" +
+					label_skip + ":\n" +
+					"\t" + temp_malloc + " = malloc(256);\n"+
+					"\t" + info.temp + " = (char*) " + temp_malloc + ";\n"+ 
+					"\tscanf(\" %[^\\n]\", " + info.temp + ");\n";
+					}
+				else{
+    			string scan_cmd = "\tscanf(\"" + formato + "\", &" + info.temp + ");\n";
+    			$$.traducao = $1.traducao + scan_cmd;
+				}
+			}
+			| TK_ID
+			{
+   				auto info = consultar_variavel($1.label);
+    			string formato = "";
+    
+   				if (info.tipo == "int" || info.tipo == "bool") formato = "%d";
+    			else if (info.tipo == "float") formato = "%f";
+				else if (info.tipo == "char") formato = "%c";
+
+				if(info.tipo == "string"){
+					string temp_cond = gentempcode();
+					string temp_malloc = gentempcode();
+    				string label_skip = gen_label();
+					declaracoes += "\tint " + temp_cond + ";\n";
+					declaracoes += "\tvoid* " + temp_malloc + ";\n";
+
+					$$.traducao = "\t" + temp_cond + " = " + info.temp + " != NULL;\n" +
+					"\tif (!" + temp_cond + ") goto " + label_skip + ";\n" +
+					"\tfree(" + info.temp + ");\n" +
+					label_skip + ":\n" +
+					"\t" + temp_malloc + " = malloc(256);\n"+
+					"\t" + info.temp + " = (char*) " + temp_malloc + ";\n"+ 
+					"\tscanf(\" %[^\\n]\", " + info.temp + ");\n";
+					}
+				else{
+    			string scan_cmd = "\tscanf(\"" + formato + "\", &" + info.temp + ");\n";
+    			$$.traducao = $1.traducao + scan_cmd;
+				}
+			}
+			;
+
+PRINT_ARGS  : PRINT_ARGS ',' E
+			{
+    			string formato = "";
+    			if ($3.tipo == "int" || $3.tipo == "bool") formato = "%d";
+    			else if ($3.tipo == "float") formato = "%f";
+    			else if ($3.tipo == "string") formato = "%s";
+				else if ($3.tipo == "char") formato = "%c";
+
+    			string print_cmd = "\tprintf(\"" + formato + "\", " + $3.label + ");\n";
+
+    			$$.traducao = $1.traducao + $3.traducao + print_cmd;
+			}
+			| E
+			{
+   				string formato = "";
+    			if ($1.tipo == "int" || $1.tipo == "bool") formato = "%d";
+    			else if ($1.tipo == "float") formato = "%f";
+    			else if ($1.tipo == "string") formato = "%s";
+				else if ($1.tipo == "char") formato = "%c";
+    
+   				string print_cmd = "\tprintf(\"" + formato + "\", " + $1.label + ");\n";
+    
+    			$$.traducao = $1.traducao + print_cmd;
+			}
+			;		
 
 BLOCO 		: '{' 
 			{
@@ -360,9 +426,26 @@ ATRIBUICAO  : TK_ID '=' E
         			$$.tipo = info.tipo;
 
 					if(info.tipo == "string"){
-						$$.traducao = $3.traducao + "\t" + $$.label + " = " + "(char*) malloc(tamString(" + $3.label+ ") + 1);\n" 
+						string temp_len = gentempcode();
+						string temp_soma = gentempcode();
+						string temp_malloc = gentempcode();
+						string temp_cond = gentempcode();
+						string label_skip = gen_label();
+						
+						declaracoes += "\tint " + temp_len + ";\n";
+						declaracoes += "\tint " + temp_soma + ";\n";
+						declaracoes += "\tvoid* " + temp_malloc + ";\n";
+						declaracoes += "\tint " + temp_cond + ";\n";
+						
+						$$.traducao = $3.traducao + "\t" + temp_cond + " = " + $$.label + " != NULL;\n"
+						+ "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" 
+						+ "\tfree(" + $$.label + ");\n" 
+						+ label_skip + ":\n"
+						+ "\t" + temp_len + " = tamString(" + $3.label + ");\n"
+						+ "\t" + temp_soma + " = " + temp_len + " + 1;\n"
+						+ "\t" + temp_malloc + " = malloc(" + temp_soma + ");\n" 
+						+ "\t" + $$.label + " = (char*) " + temp_malloc + ";\n" 
 						+ "\tstrcpy(" + $$.label + ", " + $3.label + ");\n";
-
 					}else{
         			// Verifica se os tipos são diferentes 
         			if (info.tipo != $3.tipo) {
@@ -421,11 +504,48 @@ ELSE_IF 	: TK_ELSE_IF '(' E ')' BLOCO //para 1 else if
 			}
 			;
 
-DEC 		: TK_INT TK_ID ';'    { declarar_variavel($2.label, "int"); }
-			| TK_FLOAT TK_ID ';'  { declarar_variavel($2.label, "float"); }
-			| TK_CHAR TK_ID ';'   { declarar_variavel($2.label, "char"); }
-			| TK_BOOL TK_ID ';'   { declarar_variavel($2.label, "bool"); }
-			| TK_STRING TK_ID ';' { declarar_variavel($2.label, "string"); }
+DEC 		: TIPO TK_ID ';'    { declarar_variavel($2.label, $1.label); }
+			| TIPO TK_ID '=' E ';'
+			{ 
+				declarar_variavel($2.label, $1.label);
+				auto info = consultar_variavel($2.label); 
+        			$$.label = info.temp;
+        			$$.tipo = info.tipo;
+
+					if(info.tipo == "string"){
+						string temp_len = gentempcode();
+						string temp_soma = gentempcode();
+						string temp_malloc = gentempcode();
+						string temp_cond = gentempcode();
+						string label_skip = gen_label();
+						
+						declaracoes += "\tint " + temp_len + ";\n";
+						declaracoes += "\tint " + temp_soma + ";\n";
+						declaracoes += "\tvoid* " + temp_malloc + ";\n";
+						declaracoes += "\tint " + temp_cond + ";\n";
+						
+						$$.traducao = $4.traducao + "\t" + temp_cond + " = " + $$.label + " != NULL;\n"
+						+ "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" 
+						+ "\tfree(" + $$.label + ");\n" 
+						+ label_skip + ":\n"
+						+ "\t" + temp_len + " = tamString(" + $4.label + ");\n"
+						+ "\t" + temp_soma + " = " + temp_len + " + 1;\n"
+						+ "\t" + temp_malloc + " = malloc(" + temp_soma + ");\n" 
+						+ "\t" + $$.label + " = (char*) " + temp_malloc + ";\n" 
+						+ "\tstrcpy(" + $$.label + ", " + $4.label + ");\n";
+					}else{ 
+        			if (info.tipo != $4.tipo) {
+            			if (info.tipo == "float" && $4.tipo == "int") 
+                			$4.label = castGerar("float", $4.label, $4.traducao); 
+            			else if (info.tipo == "int" && $4.tipo == "float") 
+                			$4.label = castGerar("int", $4.label, $4.traducao);
+						else 
+						 yyerror("tipos incompativeis para atribuicao"); 
+						}	
+        			$$.traducao = $4.traducao + "\t" + $$.label + " = " + $4.label + ";\n";
+					}
+
+			}
 			;
 
 TIPO		: TK_INT 	{ $$.label = "int"; }
@@ -624,7 +744,34 @@ string castGerar(string cast_tipo, string label, string& cast_traducao){
 }
 
 void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op_tipo){
-	if(eh_tipo_numerico(d1) && eh_tipo_numerico(d3)){
+	if (d1.tipo == "string" && d3.tipo == "string" && op == "+") {
+        string temp_len1 = gentempcode();
+        string temp_len2 = gentempcode();
+        string temp_soma_len = gentempcode();
+        string temp_total = gentempcode();
+        string temp_malloc = gentempcode();
+        
+        dd.label = gentempcode();
+        dd.tipo = "string";
+
+        declaracoes += "\tint " + temp_len1 + ";\n";
+        declaracoes += "\tint " + temp_len2 + ";\n";
+        declaracoes += "\tint " + temp_soma_len + ";\n";
+        declaracoes += "\tint " + temp_total + ";\n";
+        declaracoes += "\tvoid* " + temp_malloc + ";\n";
+        declaracoes += "\tchar* " + dd.label + " = NULL;\n";
+
+        dd.traducao = d1.traducao + d3.traducao +
+                      "\t" + temp_len1 + " = tamString(" + d1.label + ");\n" +
+                      "\t" + temp_len2 + " = tamString(" + d3.label + ");\n" +
+                      "\t" + temp_soma_len + " = " + temp_len1 + " + " + temp_len2 + ";\n" +
+                      "\t" + temp_total + " = " + temp_soma_len + " + 1;\n" + 
+                      "\t" + temp_malloc + " = malloc(" + temp_total + ");\n" +
+                      "\t" + dd.label + " = (char*) " + temp_malloc + ";\n" +
+                      "\tstrcpy(" + dd.label + ", " + d1.label + ");\n" +
+                      "\tstrcat(" + dd.label + ", " + d3.label + ");\n"; 
+    }
+	else if(eh_tipo_numerico(d1) && eh_tipo_numerico(d3)){
 		auto cast = tabela_consulta[{d1.tipo, d3.tipo}]; 
 		//consulta a tabela para saber se será necessário fazer cast
 		if(op_tipo == "arit"){
@@ -706,7 +853,11 @@ void declarar_variavel(string nome, string tipo){
 		string temp = gentempcode();
 		tabela_escopos.back()[nome] = {temp, tipo};
 		string tipo_c = (tipo == "bool") ? "int" : (tipo == "string") ? "char*" : tipo;
-		declaracoes += "\t" + tipo_c +  " " + temp + ";\n";
+
+		if (tipo == "string") 
+			declaracoes += "\t" + tipo_c + " " + temp + " = NULL;\n";
+		else 
+			declaracoes += "\t" + tipo_c + " " + temp + ";\n";
 	}
 
 }
