@@ -7,7 +7,7 @@
 ESPACO [ \t]
 DIGITO [0-9]
 FLUTUANTE \.[0-9]+
-ID [a-zA-Z_][a-zA-Z0-9]*
+ID [a-zA-Z_][a-zA-Z0-9_]*
 LETRA [a-zA-Z]
 
 DELIM {ESPACO}+
@@ -56,6 +56,8 @@ TEXTO ["][^"]*["]
 
 "imprima"   { return TK_PRINT; }
 "leia"      { return TK_SCAN; }
+
+"retorna"   { return TK_RETORNA; }    
 
 "verdadeiro"    { yylval.label = "1"; yylval.tipo = "bool"; return TK_BOOLLIT;}
 "falso"         { yylval.label = "0"; yylval.tipo = "bool"; return TK_BOOLLIT;}

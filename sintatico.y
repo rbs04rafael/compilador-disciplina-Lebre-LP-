@@ -15,10 +15,12 @@ int erro_count = 0;
 int nivel_escopo = 0;
 string codigo_gerado;
 string declaracoes;
+string tipo_retorno_atual; 
 vector<string> declaracoes_anterior;
 vector<string> pilha_switch_temp;
 vector<string> pilha_break;
 vector<string> pilha_continue;
+vector<string> tipos_parametros_atual;
 
 struct info_var{
 	string temp;
@@ -27,7 +29,18 @@ struct info_var{
 
 vector<map<string, info_var>> tabela_escopos; //vetor de tabela de simbolos para blocos
 
-//armazena as informações para o cast
+// Estrutura para guardar a assinatura da função
+struct info_funcao {
+    string tipo_retorno;
+    vector<string> tipos_parametros;
+};
+
+// Tabela global de funções (Nome da Função -> Informações)
+map<string, info_funcao> tabela_funcoes;
+
+// Nova string para guardar as funções fora do main
+string codigo_funcoes = "";
+
 struct info_cast{
 	string resultado;
 	string cast_esq;
@@ -76,6 +89,7 @@ string gen_label();
 %token TK_PRINT TK_SCAN
 %token TK_WHILE TK_DO_WHILE TK_FOR TK_INC
 %token TK_SWITCH TK_CASE TK_DEFAULT TK_BREAK TK_CONTINUE
+%token TK_RETORNA
 
 %start S
 
@@ -128,9 +142,9 @@ S           : LISTA_DEC
 								"	t_soma = t_idx + 1;\n"
 								"	t_idx = t_soma;\n"
 								"	goto L_inicio;\n"
-								"}\n\n"
+								"}\n\n";
 
-                                "int main(void) {\n";
+                codigo_gerado += codigo_funcoes + "int main(void) {\n";
 
                 codigo_gerado += declaracoes + "\n" + $1.traducao;
 
@@ -147,6 +161,10 @@ LISTA_DEC  : LISTA_DEC DEC
             {
                 $$.traducao = $1.traducao + $2.traducao;
             }
+			| LISTA_DEC FUNC
+			{
+				$$.traducao = $1.traducao + $2.traducao;
+			}
             | LISTA_DEC BLOCO
 			{
 				$$.traducao = $1.traducao + $2.traducao;
@@ -168,6 +186,74 @@ LISTA_DEC  : LISTA_DEC DEC
                 $$.traducao = "";
             }
             ;
+ FUNC       : TIPO TK_ID '('                                                                                                                                                                                 
+                {                                                                                                                                                                                                
+                    tipo_retorno_atual = $1.label;                                                                                                                                                               
+                    tipos_parametros_atual.clear();                                                                                                                                                                                                                                                                          
+                    declaracoes_anterior.push_back(declaracoes);
+                    declaracoes = "";
+                    tabela_escopos.push_back(map<string, info_var>());
+                    nivel_escopo++;
+                }
+                PARAMETROS ')' '{' LISTA_DEC '}'
+                {
+                	tabela_funcoes[$2.label] = {$1.label, tipos_parametros_atual};
+
+                    string tipo_c = ($1.label == "bool") ? "int" : ($1.label == "string") ? "char*" : $1.label;
+
+                    codigo_funcoes += tipo_c + " " + $2.label + "(" + $5.traducao + ") {\n" + declaracoes + $8.traducao + "}\n\n";
+
+ 					$$.traducao = "";
+    				nivel_escopo--;
+    				declaracoes = declaracoes_anterior.back();
+    				declaracoes_anterior.pop_back();
+					tabela_escopos.pop_back();
+                }
+				;
+PARAMETROS 		: PARAMETRO ',' PARAMETROS
+                {
+                    $$.traducao = $1.traducao + ", " + $3.traducao;
+                }
+                | PARAMETRO
+                {
+  					$$.traducao = $1.traducao;
+                }
+				| /* vazio */
+				{
+					$$.traducao = "";
+				}
+                ;
+
+PARAMETRO   : TIPO TK_ID
+                {
+                    tipos_parametros_atual.push_back($1.label);
+
+                    // Cadastra a variável no escopo da função, mas sem colocar na string "declaracoes" 
+                    // (pois ela já será declarada dentro dos parênteses da função)
+                    string temp = gentempcode();
+                    tabela_escopos.back()[$2.label] = {temp, $1.label};
+
+                    string tipo_c = ($1.label == "bool") ? "int" : ($1.label == "string") ? "char*" : $1.label;
+                    $$.traducao = tipo_c + " " + temp;
+                }
+                ;
+ARGS_CHAMADA : E ',' ARGS_CHAMADA
+             {
+                 $$.traducao = $1.traducao + $3.traducao;
+                 $$.label = $1.label + ", " + $3.label;
+             }
+             | E
+             {
+                 $$.traducao = $1.traducao;
+                 $$.label = $1.label;
+             }
+             | /* vazio */
+             {
+                 $$.traducao = "";
+                 $$.label = "";
+             }
+             ;
+
 SCAN_ARGS 	: SCAN_ARGS ',' TK_ID
 			{
     			auto info = consultar_variavel($3.label);
@@ -392,6 +478,18 @@ CTRL 		: TK_IF '(' E ')' BLOCO //para if sem else
 					$$.traducao = "\tgoto " + pilha_continue.back() + ";\n";
 				}
 			}
+			| TK_RETORNA E ';'
+                {
+                    if ($2.tipo != tipo_retorno_atual) {
+                        if (tipo_retorno_atual == "float" && $2.tipo == "int") 
+                            $2.label = castGerar("float", $2.label, $2.traducao); 
+                        else if (tipo_retorno_atual == "int" && $2.tipo == "float") 
+                            $2.label = castGerar("int", $2.label, $2.traducao);
+                        else 
+                            yyerror("Tipo de retorno invalido!"); 
+                    }
+                    $$.traducao = $2.traducao + "\treturn " + $2.label + ";\n";
+                }
 			;
 CASO   	: TK_CASE E ':' LISTA_DEC
 			{
@@ -568,6 +666,19 @@ P       	: TK_NUM
         			$$.label = info.temp;
         			$$.tipo = info.tipo;
         			$$.traducao = "";
+        	}
+        	| TK_ID '(' ARGS_CHAMADA ')'
+        	{
+            	if (!tabela_funcoes.count($1.label)) {
+                	yyerror("Erro: funcao " + $1.label + " nao declarada!");
+            	} else {
+                	auto info_func = tabela_funcoes[$1.label];
+                	$$.tipo = info_func.tipo_retorno;
+                	$$.label = gentempcode();
+                	string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
+                	declaracoes += "\t" + tipo_c + " " + $$.label + ";\n";
+                	$$.traducao = $3.traducao + "\t" + $$.label + " = " + $1.label + "(" + $3.label + ");\n";
+            	}
         	}
         	| TK_CHARLITERAL
         	{
