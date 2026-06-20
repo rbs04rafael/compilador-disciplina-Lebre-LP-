@@ -25,6 +25,7 @@ vector<string> tipos_parametros_atual;
 struct info_var{
 	string temp;
 	string tipo;
+	string dim = "";
 };
 
 vector<map<string, info_var>> tabela_escopos; //vetor de tabela de simbolos para blocos
@@ -77,6 +78,8 @@ void op_logicos(atributos&, atributos&, atributos&, string); //função respons�
 bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
 bool cast_valido(string destino, string origem); //função que determina se um cast é válido ou não, usada para validar o cast explícito
 void declarar_variavel(string nome, string tipo);
+void declarar_vetor(string nome, string tipo, string tamanho);
+void declarar_matriz(string nome, string tipo, string tam1, string tam2);
 info_var consultar_variavel(string nome);
 string gen_label();
 %}
@@ -236,23 +239,78 @@ PARAMETRO   : TIPO TK_ID
                     string tipo_c = ($1.label == "bool") ? "int" : ($1.label == "string") ? "char*" : $1.label;
                     $$.traducao = tipo_c + " " + temp;
                 }
+            | TIPO TK_ID '[' ']'
+                {
+                    tipos_parametros_atual.push_back($1.label + "[]");
+                    
+                    string temp = gentempcode();
+                    tabela_escopos.back()[$2.label] = {temp, $1.label};
+                    
+                    string tipo_c = ($1.label == "bool") ? "int" : ($1.label == "string") ? "char*" : $1.label;
+                    $$.traducao = tipo_c + " *" + temp;
+                }
+            | TIPO TK_ID '[' ']' '[' TK_NUM ']'
+                {
+                    tipos_parametros_atual.push_back($1.label + "[][]");
+                    
+                    string temp = gentempcode();
+                    tabela_escopos.back()[$2.label] = {temp, $1.label, $6.label};
+                    
+                    string tipo_c = ($1.label == "bool") ? "int" : ($1.label == "string") ? "char*" : $1.label;
+                    $$.traducao = tipo_c + " *" + temp;
+                }
                 ;
 ARGS_CHAMADA : E ',' ARGS_CHAMADA
              {
                  $$.traducao = $1.traducao + $3.traducao;
                  $$.label = $1.label + ", " + $3.label;
+                 $$.tipo = $1.tipo + "," + $3.tipo;
              }
              | E
              {
                  $$.traducao = $1.traducao;
                  $$.label = $1.label;
+                 $$.tipo = $1.tipo;
              }
              | /* vazio */
              {
                  $$.traducao = "";
                  $$.label = "";
+                 $$.tipo = "";
              }
              ;
+
+VALOR_LITERAL : TK_NUM { $$.label = $1.label; }
+              | TK_CHARLITERAL { $$.label = $1.label; }
+              | TK_BOOLLIT { $$.label = $1.label; }
+              | TK_STRINGLITERAL { $$.label = $1.label; }
+              ;
+
+VALORES_VETOR : VALORES_VETOR ',' VALOR_LITERAL
+              {
+                  $$.label = $1.label + ", " + $3.label;
+              }
+              | VALOR_LITERAL
+              {
+                  $$.label = $1.label;
+              }
+              ;
+
+LINHA_MATRIZ : '{' VALORES_VETOR '}'
+             {
+                 $$.label = $2.label;
+             }
+             ;
+
+VALORES_MATRIZ : VALORES_MATRIZ ',' LINHA_MATRIZ
+               {
+                   $$.label = $1.label + ", " + $3.label;
+               }
+               | LINHA_MATRIZ
+               {
+                   $$.label = $1.label;
+               }
+               ;
 
 SCAN_ARGS 	: SCAN_ARGS ',' TK_ID
 			{
@@ -562,6 +620,47 @@ ATRIBUICAO  : TK_ID '=' E
 				auto info = consultar_variavel($1.label);
 				$$.traducao = "\t" + info.temp + " = " + info.temp + " + 1;\n";
 			}
+			| TK_ID '[' E ']' '=' E
+            {
+                auto info = consultar_variavel($1.label);
+                if ($3.tipo != "int") yyerror("Erro: O indice do vetor deve ser inteiro!");
+
+                if (info.tipo != $6.tipo) yyerror("Erro: Tipos incompativeis para atribuicao no vetor!");
+
+                $$.tipo = info.tipo;
+                string tipo_c = (info.tipo == "bool") ? "int" : (info.tipo == "string") ? "char*" : info.tipo;
+                
+                string t_ptr = gentempcode();
+                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                
+                $$.traducao = $3.traducao + $6.traducao 
+                            + "\t" + t_ptr + " = " + info.temp + " + " + $3.label + ";\n"
+                            + "\t*" + t_ptr + " = " + $6.label + ";\n";
+            }
+			| TK_ID '[' E ']' '[' E ']' '=' E
+            {
+                auto info = consultar_variavel($1.label);
+                if ($3.tipo != "int" || $6.tipo != "int") yyerror("Erro: Os indices da matriz devem ser inteiros!");
+
+                if (info.tipo != $9.tipo) yyerror("Erro: Tipos incompativeis para atribuicao na matriz!");
+
+                $$.tipo = info.tipo;
+                string tipo_c = (info.tipo == "bool") ? "int" : (info.tipo == "string") ? "char*" : info.tipo;
+                
+                string t_mult = gentempcode();
+                string t_soma = gentempcode();
+                string t_ptr = gentempcode();
+                declaracoes += "\tint " + t_mult + ";\n";
+                declaracoes += "\tint " + t_soma + ";\n";
+                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                
+                string calc = "\t" + t_mult + " = " + $3.label + " * " + info.dim + ";\n" +
+                              "\t" + t_soma + " = " + t_mult + " + " + $6.label + ";\n" +
+                              "\t" + t_ptr + " = " + info.temp + " + " + t_soma + ";\n";
+                
+                $$.traducao = $3.traducao + $6.traducao + $9.traducao + calc
+                            + "\t*" + t_ptr + " = " + $9.label + ";\n";
+            }
 			;
 
 ELSE_IF 	: TK_ELSE_IF '(' E ')' BLOCO //para 1 else if
@@ -603,6 +702,95 @@ ELSE_IF 	: TK_ELSE_IF '(' E ')' BLOCO //para 1 else if
 			;
 
 DEC 		: TIPO TK_ID ';'    { declarar_variavel($2.label, $1.label); }
+			| TIPO TK_ID '[' TK_NUM ']' ';'
+			{
+                    if ($4.tipo != "int") 
+						yyerror("O tamanho do vetor deve ser inteiro!");
+
+                    declarar_vetor($2.label, $1.label, $4.label);
+                    $$.traducao = "";
+			}
+			| TIPO TK_ID '[' TK_NUM ']' '[' TK_NUM ']' ';'
+			{
+                    if ($4.tipo != "int" || $7.tipo != "int") 
+						yyerror("Os tamanhos da matriz devem ser inteiros!");
+
+                    declarar_matriz($2.label, $1.label, $4.label, $7.label);
+                    $$.traducao = "";
+			}
+			| TIPO TK_ID '[' TK_NUM ']' '[' TK_NUM ']' '=' '{' VALORES_MATRIZ '}' ';'
+			{
+                    if ($4.tipo != "int" || $7.tipo != "int") 
+						yyerror("Os tamanhos da matriz devem ser inteiros!");
+
+                    if(tabela_escopos.back().count($2.label)) {
+                        yyerror("matriz " + $2.label + " ja declarada nesse escopo");
+                    } else {
+                        string temp = gentempcode();
+                        tabela_escopos.back()[$2.label] = {temp, $1.label, $7.label};
+                        string tipo_c = ($1.label == "bool") ? "int" : ($1.label == "string") ? "char*" : $1.label;
+                        
+                        int total = stoi($4.label) * stoi($7.label);
+                        declaracoes += "\t" + tipo_c + " " + temp + "[" + to_string(total) + "];\n";
+                        
+                        string values = $11.label;
+                        string traducao_init = "";
+                        int idx = 0;
+                        size_t pos = 0;
+                        while ((pos = values.find(',')) != string::npos) {
+                            string val = values.substr(0, pos);
+                            string t_ptr = gentempcode();
+                            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                            traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
+                            traducao_init += "\t*" + t_ptr + " = " + val + ";\n";
+                            values.erase(0, pos + 1);
+                            idx++;
+                        }
+                        if (!values.empty() && values != " ") {
+                            string t_ptr = gentempcode();
+                            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                            traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
+                            traducao_init += "\t*" + t_ptr + " = " + values + ";\n";
+                        }
+                        $$.traducao = traducao_init;
+                    }
+			}
+			| TIPO TK_ID '[' TK_NUM ']' '=' '{' VALORES_VETOR '}' ';'
+			{
+                    if ($4.tipo != "int") 
+						yyerror("O tamanho do vetor deve ser inteiro!");
+
+                    if(tabela_escopos.back().count($2.label)) {
+                        yyerror("vetor " + $2.label + " ja declarado nesse escopo");
+                    } else {
+                        string temp = gentempcode();
+                        tabela_escopos.back()[$2.label] = {temp, $1.label, "1D"};
+                        string tipo_c = ($1.label == "bool") ? "int" : ($1.label == "string") ? "char*" : $1.label;
+                        
+                        declaracoes += "\t" + tipo_c + " " + temp + "[" + $4.label + "];\n";
+                        
+                        string values = $8.label;
+                        string traducao_init = "";
+                        int idx = 0;
+                        size_t pos = 0;
+                        while ((pos = values.find(',')) != string::npos) {
+                            string val = values.substr(0, pos);
+                            string t_ptr = gentempcode();
+                            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                            traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
+                            traducao_init += "\t*" + t_ptr + " = " + val + ";\n";
+                            values.erase(0, pos + 1);
+                            idx++;
+                        }
+                        if (!values.empty() && values != " ") {
+                            string t_ptr = gentempcode();
+                            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                            traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
+                            traducao_init += "\t*" + t_ptr + " = " + values + ";\n";
+                        }
+                        $$.traducao = traducao_init;
+                    }
+			}
 			| TIPO TK_ID '=' E ';'
 			{ 
 				declarar_variavel($2.label, $1.label);
@@ -664,8 +852,55 @@ P       	: TK_NUM
         	{
         			auto info = consultar_variavel($1.label);
         			$$.label = info.temp;
-        			$$.tipo = info.tipo;
+                    if (info.dim == "1D") {
+                        $$.tipo = info.tipo + "[]";
+                    } else if (info.dim != "") {
+                        $$.tipo = info.tipo + "[][]";
+                    } else {
+        			    $$.tipo = info.tipo;
+                    }
         			$$.traducao = "";
+        	}
+        	| TK_ID '[' E ']'
+        	{
+            	auto info = consultar_variavel($1.label);
+            	if ($3.tipo != "int") yyerror("Erro: O indice do vetor deve ser inteiro!");
+            
+            	$$.tipo = info.tipo;
+            	$$.label = gentempcode();
+            
+            	string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
+            	declaracoes += "\t" + tipo_c + " " + $$.label + ";\n";
+                
+                string t_ptr = gentempcode();
+                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+            
+            	$$.traducao = $3.traducao + "\t" + t_ptr + " = " + info.temp + " + " + $3.label + ";\n" 
+                            + "\t" + $$.label + " = *" + t_ptr + ";\n";
+        	}
+        	| TK_ID '[' E ']' '[' E ']'
+        	{
+            	auto info = consultar_variavel($1.label);
+            	if ($3.tipo != "int" || $6.tipo != "int") yyerror("Erro: Os indices da matriz devem ser inteiros!");
+            
+            	$$.tipo = info.tipo;
+            	$$.label = gentempcode();
+            
+            	string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
+            	declaracoes += "\t" + tipo_c + " " + $$.label + ";\n";
+            
+                string t_mult = gentempcode();
+                string t_soma = gentempcode();
+                string t_ptr = gentempcode();
+                declaracoes += "\tint " + t_mult + ";\n";
+                declaracoes += "\tint " + t_soma + ";\n";
+                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                
+                string calc = "\t" + t_mult + " = " + $3.label + " * " + info.dim + ";\n" +
+                              "\t" + t_soma + " = " + t_mult + " + " + $6.label + ";\n" +
+                              "\t" + t_ptr + " = " + info.temp + " + " + t_soma + ";\n";
+            
+            	$$.traducao = $3.traducao + $6.traducao + calc + "\t" + $$.label + " = *" + t_ptr + ";\n";
         	}
         	| TK_ID '(' ARGS_CHAMADA ')'
         	{
@@ -673,6 +908,32 @@ P       	: TK_NUM
                 	yyerror("Erro: funcao " + $1.label + " nao declarada!");
             	} else {
                 	auto info_func = tabela_funcoes[$1.label];
+                    
+                    vector<string> args_tipos;
+                    string types_str = $3.tipo;
+                    if (!types_str.empty()) {
+                        size_t pos = 0;
+                        while ((pos = types_str.find(',')) != string::npos) {
+                            args_tipos.push_back(types_str.substr(0, pos));
+                            types_str.erase(0, pos + 1);
+                        }
+                        args_tipos.push_back(types_str);
+                    }
+                    
+                    if (args_tipos.size() != info_func.tipos_parametros.size()) {
+                        yyerror("Erro Semantico: A funcao " + $1.label + " esperava " + to_string(info_func.tipos_parametros.size()) + " argumentos, mas recebeu " + to_string(args_tipos.size()) + "!");
+                    } else {
+                        for (size_t i = 0; i < args_tipos.size(); i++) {
+                            if (args_tipos[i] != info_func.tipos_parametros[i]) {
+                                bool cast_ok = (args_tipos[i] == "int" || args_tipos[i] == "float") && 
+                                               (info_func.tipos_parametros[i] == "int" || info_func.tipos_parametros[i] == "float");
+                                if (!cast_ok) {
+                                    yyerror("Erro Semantico: O argumento " + to_string(i+1) + " da funcao " + $1.label + " tem tipo incompativel (esperado: " + info_func.tipos_parametros[i] + ", recebido: " + args_tipos[i] + ")!");
+                                }
+                            }
+                        }
+                    }
+
                 	$$.tipo = info_func.tipo_retorno;
                 	$$.label = gentempcode();
                 	string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
@@ -984,3 +1245,28 @@ info_var consultar_variavel(string nome){
 
 	return {"", ""};
 	}
+
+void declarar_vetor(string nome, string tipo, string tamanho){
+    if(tabela_escopos.back().count(nome))
+         yyerror("vetor " + nome + " já declarado nesse escopo");
+    else{
+            string temp = gentempcode();
+            tabela_escopos.back()[nome] = {temp, tipo, "1D"};
+            string tipo_c = (tipo == "bool") ? "int" : (tipo == "string") ? "char*" : tipo;
+
+            declaracoes += "\t" + tipo_c + " " + temp + "[" + tamanho + "];\n";
+        }
+}
+
+void declarar_matriz(string nome, string tipo, string tam1, string tam2){
+    if(tabela_escopos.back().count(nome))
+         yyerror("matriz " + nome + " já declarada nesse escopo");
+    else{
+            string temp = gentempcode();
+            tabela_escopos.back()[nome] = {temp, tipo, tam2};
+            string tipo_c = (tipo == "bool") ? "int" : (tipo == "string") ? "char*" : tipo;
+
+            int total = stoi(tam1) * stoi(tam2);
+            declaracoes += "\t" + tipo_c + " " + temp + "[" + to_string(total) + "];\n";
+        }
+}

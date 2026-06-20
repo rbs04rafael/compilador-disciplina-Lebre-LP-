@@ -31,7 +31,7 @@ TEXTO ["][^"]*["]
 "&&"        { return TK_AND; }
 "||"        { return TK_OR; }
 
-[-+*/()=;><!{}:,]	{ return *yytext; }
+[-+*/()=;><!{}:,\[\]]	{ return *yytext; }
 
 "real"      { return TK_FLOAT; }
 "inteiro"   { return TK_INT; }
