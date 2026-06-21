@@ -23,6 +23,8 @@ TEXTO ["][^"]*["]
 
 {DELIM} 	{}
 
+"//".*     { /* Nao faz nada, apenas ignora o texto */ }
+
 "<="        { return TK_MEI; }
 ">="        { return TK_MAI; }
 "=="        { return TK_II; }
@@ -31,13 +33,20 @@ TEXTO ["][^"]*["]
 "&&"        { return TK_AND; }
 "||"        { return TK_OR; }
 
-[-+*/()=;><!{}:,\[\]]	{ return *yytext; }
+"+="        { return TK_MAIS_IGUAL; }
+"-="        { return TK_MENOS_IGUAL; }
+"*="        { return TK_VEZES_IGUAL; }
+"/="        { return TK_DIV_IGUAL; }
+
+[-+*/()=;><!{}:,\[\]%]	{ return *yytext; }
 
 "real"      { return TK_FLOAT; }
 "inteiro"   { return TK_INT; }
 "caractere" { return TK_CHAR; }
 "logico"    { return TK_BOOL; }
 "texto"     { return TK_STRING; }
+"vazio"     { return TK_VOID; }
+"var"       { return TK_VAR; }
 
 "se"        { return TK_IF; }
 "senao"     { return TK_ELSE; }
@@ -47,12 +56,14 @@ TEXTO ["][^"]*["]
 "caso"      { return TK_CASE; }
 "padrao"    { return TK_DEFAULT; }
 "pare"      { return TK_BREAK; }
+"pare_tudo" { return TK_BREAK_ALL; }
 "continua"  { return TK_CONTINUE; }
 
 "enquanto"  { return TK_WHILE; }
 "faca"[ \t\n]+"enquanto" { return TK_DO_WHILE; }
 "para"      { return TK_FOR; }
 "++"        { return TK_INC; }
+"--"        { return TK_DEC; }
 
 "imprima"   { return TK_PRINT; }
 "leia"      { return TK_SCAN; }
