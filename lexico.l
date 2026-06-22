@@ -13,7 +13,7 @@ LETRA [a-zA-Z]
 DELIM {ESPACO}+
 NUM {DIGITO}+
 REAL {NUM}{FLUTUANTE}
-CARACTERE '{LETRA}?'
+CARACTERE '([^'])'
 
 TEXTO ["][^"]*["]
 
@@ -60,7 +60,7 @@ TEXTO ["][^"]*["]
 "continua"  { return TK_CONTINUE; }
 
 "enquanto"  { return TK_WHILE; }
-"faca"[ \t\n]+"enquanto" { return TK_DO_WHILE; }
+"faca"      { return TK_DO_WHILE; }
 "para"      { return TK_FOR; }
 "++"        { return TK_INC; }
 "--"        { return TK_DEC; }
