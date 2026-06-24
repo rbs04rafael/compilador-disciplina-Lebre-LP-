@@ -12,12 +12,12 @@ int var_temp_qnt;
 int label_count = 0;
 int linha = 1;
 int erro_count = 0; 
-int nivel_escopo = 0; //controla qual o escopo atual (0 eh o global)
-vector<string> pilha_break; //pilha q fica responsável por guardar a label dos switch e lacos
+int nivel_escopo = 0; 
+vector<string> pilha_break;
 vector<string> pilha_continue;
 vector<string> pilha_switch_temp;
 vector<string> pilha_switch_tipo;
-vector<string> lista_erros; // Guarda todos os erros para mostrar no final
+vector<string> lista_erros; 
 string codigo_gerado;
 string declaracoes;
 string declaracoes_globais;
@@ -33,7 +33,7 @@ struct info_var{
 	string dim = "";
 };
 
-vector<map<string, info_var>> tabela_escopos; //vetor de tabela de simbolos para blocos
+vector<map<string, info_var>> tabela_escopos; 
 
 // Estrutura para guardar a assinatura da função
 struct info_funcao {
@@ -1447,7 +1447,7 @@ void add_declaracao(string dec) {
     if (nivel_escopo == 0) {
         declaracoes_globais += dec;
     } else {
-        add_declaracao( dec);
+        declaracoes += dec;
     }
 }
 
