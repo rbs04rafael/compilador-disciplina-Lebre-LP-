@@ -20,6 +20,7 @@ vector<string> pilha_switch_tipo;
 vector<string> lista_erros; // Guarda todos os erros para mostrar no final
 string codigo_gerado;
 string declaracoes;
+string declaracoes_globais;
 string tipo_retorno_atual; 
 bool teve_retorno = false;
 vector<string> declaracoes_anterior;
@@ -81,6 +82,7 @@ void operacoes(atributos&, atributos&, atributos&, string, string); //função r
 void op_logicos(atributos&, atributos&, atributos&, string); //função responsável pelas operações lógicas
 bool eh_tipo_numerico(atributos&); //função que determina se $1 e $3 são valores numéricos para relaizar operações aritméticas e relacionais
 bool cast_valido(string destino, string origem); //função que determina se um cast é válido ou não, usada para validar o cast explícito
+void add_declaracao(string dec);
 void declarar_variavel(string nome, string tipo);
 void declarar_vetor(string nome, string tipo, string tamanho);
 void declarar_matriz(string nome, string tipo, string tam1, string tam2);
@@ -186,7 +188,7 @@ S           : LISTA_DEC
 								"	return t_str;\n"
 								"}\n\n";
 
-                codigo_gerado += codigo_funcoes + "int main(void) {\n";
+                codigo_gerado += declaracoes_globais + "\n" + codigo_funcoes + "int main(void) {\n";
 
                 codigo_gerado += declaracoes + "\n" + $1.traducao;
 
@@ -366,7 +368,7 @@ SCAN_VAR : TK_ID
             if(info.tipo == "string"){
                 string temp_cond = gentempcode();
                 string label_skip = gen_label();
-                declaracoes += "\tint " + temp_cond + ";\n";
+                add_declaracao( "\tint " + temp_cond + ";\n");
 
                 $$.traducao = "\t" + temp_cond + " = " + info.temp + " != NULL;\n" +
                 "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" +
@@ -384,7 +386,7 @@ SCAN_VAR : TK_ID
 
             string tipo_c = (info.tipo == "bool") ? "int" : (info.tipo == "string") ? "char*" : info.tipo;
             string t_ptr = gentempcode();
-            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+            add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
             
             string addr_calc = $3.traducao + "\t" + t_ptr + " = " + info.temp + " + " + $3.label + ";\n";
 
@@ -396,7 +398,7 @@ SCAN_VAR : TK_ID
             if(info.tipo == "string"){
                 string temp_cond = gentempcode();
                 string label_skip = gen_label();
-                declaracoes += "\tint " + temp_cond + ";\n";
+                add_declaracao( "\tint " + temp_cond + ";\n");
                 $$.traducao = addr_calc + "\t" + temp_cond + " = *" + t_ptr + " != NULL;\n" +
                 "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" +
                 "\tfree(*" + t_ptr + ");\n" +
@@ -415,9 +417,9 @@ SCAN_VAR : TK_ID
             string t_mult = gentempcode();
             string t_soma = gentempcode();
             string t_ptr = gentempcode();
-            declaracoes += "\tint " + t_mult + ";\n";
-            declaracoes += "\tint " + t_soma + ";\n";
-            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+            add_declaracao( "\tint " + t_mult + ";\n");
+            add_declaracao( "\tint " + t_soma + ";\n");
+            add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
             
             string addr_calc = $3.traducao + $6.traducao + 
                             "\t" + t_mult + " = " + $3.label + " * " + info.dim + ";\n" +
@@ -432,7 +434,7 @@ SCAN_VAR : TK_ID
             if(info.tipo == "string"){
                 string temp_cond = gentempcode();
                 string label_skip = gen_label();
-                declaracoes += "\tint " + temp_cond + ";\n";
+                add_declaracao( "\tint " + temp_cond + ";\n");
                 $$.traducao = addr_calc + "\t" + temp_cond + " = *" + t_ptr + " != NULL;\n" +
                 "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" +
                 "\tfree(*" + t_ptr + ");\n" +
@@ -467,7 +469,7 @@ PRINT_ARGS  : PRINT_ARGS ',' E
                 else if ($3.tipo == "bool") {
                     formato = "%s\\n";
                     string temp_str = gentempcode();
-                    declaracoes += "\tchar* " + temp_str + ";\n";
+                    add_declaracao( "\tchar* " + temp_str + ";\n");
                     prep_traducao = "\t" + temp_str + " = boolParaString(" + $3.label + ");\n";
                     valor_impresso = temp_str;
                 }
@@ -489,7 +491,7 @@ PRINT_ARGS  : PRINT_ARGS ',' E
                 else if ($1.tipo == "bool") {
                     formato = "%s\\n";
                     string temp_str = gentempcode();
-                    declaracoes += "\tchar* " + temp_str + ";\n";
+                    add_declaracao( "\tchar* " + temp_str + ";\n");
                     prep_traducao = "\t" + temp_str + " = boolParaString(" + $1.label + ");\n";
                     valor_impresso = temp_str;
                 }
@@ -722,7 +724,7 @@ CASO   	: TK_CASE E ':' LISTA_DEC
 				string temp_switch = pilha_switch_temp.back();
 				string tipo_switch = pilha_switch_tipo.back();
 				string temp_cmp = gentempcode();
-				declaracoes += "\tint " + temp_cmp + ";\n";
+				add_declaracao( "\tint " + temp_cmp + ";\n");
 
 				string label_proximo = gen_label();
 				string condicao;
@@ -768,10 +770,10 @@ ATRIBUICAO  : TK_ID '=' E
 						string temp_cond = gentempcode();
 						string label_skip = gen_label();
 						
-						declaracoes += "\tint " + temp_len + ";\n";
-						declaracoes += "\tint " + temp_soma + ";\n";
-						declaracoes += "\tvoid* " + temp_malloc + ";\n";
-						declaracoes += "\tint " + temp_cond + ";\n";
+						add_declaracao( "\tint " + temp_len + ";\n");
+						add_declaracao( "\tint " + temp_soma + ";\n");
+						add_declaracao( "\tvoid* " + temp_malloc + ";\n");
+						add_declaracao( "\tint " + temp_cond + ";\n");
 						
 						$$.traducao = $3.traducao + "\t" + temp_cond + " = " + $$.label + " != NULL;\n"
 						+ "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" 
@@ -814,7 +816,7 @@ ATRIBUICAO  : TK_ID '=' E
                 string tipo_c = (info.tipo == "bool") ? "int" : (info.tipo == "string") ? "char*" : info.tipo;
                 
                 string t_ptr = gentempcode();
-                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
                 
                 if (info.tipo == "string") {
                     string temp_len = gentempcode();
@@ -823,10 +825,10 @@ ATRIBUICAO  : TK_ID '=' E
                     string temp_cond = gentempcode();
                     string label_skip = gen_label();
                     
-                    declaracoes += "\tint " + temp_len + ";\n";
-                    declaracoes += "\tint " + temp_soma + ";\n";
-                    declaracoes += "\tvoid* " + temp_malloc + ";\n";
-                    declaracoes += "\tint " + temp_cond + ";\n";
+                    add_declaracao( "\tint " + temp_len + ";\n");
+                    add_declaracao( "\tint " + temp_soma + ";\n");
+                    add_declaracao( "\tvoid* " + temp_malloc + ";\n");
+                    add_declaracao( "\tint " + temp_cond + ";\n");
                     
                     $$.traducao = $3.traducao + $6.traducao 
                                 + "\t" + t_ptr + " = " + info.temp + " + " + $3.label + ";\n"
@@ -858,9 +860,9 @@ ATRIBUICAO  : TK_ID '=' E
                 string t_mult = gentempcode();
                 string t_soma = gentempcode();
                 string t_ptr = gentempcode();
-                declaracoes += "\tint " + t_mult + ";\n";
-                declaracoes += "\tint " + t_soma + ";\n";
-                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                add_declaracao( "\tint " + t_mult + ";\n");
+                add_declaracao( "\tint " + t_soma + ";\n");
+                add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
                 
                 string calc = "\t" + t_mult + " = " + $3.label + " * " + info.dim + ";\n" +
                               "\t" + t_soma + " = " + t_mult + " + " + $6.label + ";\n" +
@@ -873,10 +875,10 @@ ATRIBUICAO  : TK_ID '=' E
                     string temp_cond = gentempcode();
                     string label_skip = gen_label();
                     
-                    declaracoes += "\tint " + temp_len + ";\n";
-                    declaracoes += "\tint " + temp_soma + ";\n";
-                    declaracoes += "\tvoid* " + temp_malloc + ";\n";
-                    declaracoes += "\tint " + temp_cond + ";\n";
+                    add_declaracao( "\tint " + temp_len + ";\n");
+                    add_declaracao( "\tint " + temp_soma + ";\n");
+                    add_declaracao( "\tvoid* " + temp_malloc + ";\n");
+                    add_declaracao( "\tint " + temp_cond + ";\n");
                     
                     $$.traducao = $3.traducao + $6.traducao + $9.traducao + calc
                                 + "\t" + temp_cond + " = *" + t_ptr + " != NULL;\n"
@@ -952,10 +954,10 @@ DEC 		: TIPO_DECL LISTA_VARIAVEIS ';'
 					string temp_cond = gentempcode();
 					string label_skip = gen_label();
 					
-					declaracoes += "\tint " + temp_len + ";\n";
-					declaracoes += "\tint " + temp_soma + ";\n";
-					declaracoes += "\tvoid* " + temp_malloc + ";\n";
-					declaracoes += "\tint " + temp_cond + ";\n";
+					add_declaracao( "\tint " + temp_len + ";\n");
+					add_declaracao( "\tint " + temp_soma + ";\n");
+					add_declaracao( "\tvoid* " + temp_malloc + ";\n");
+					add_declaracao( "\tint " + temp_cond + ";\n");
 					
 					$$.traducao = $4.traducao + "\t" + temp_cond + " = " + $$.label + " != NULL;\n"
 					+ "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" 
@@ -1009,7 +1011,7 @@ VARIAVEL    : TK_ID
                         string tipo_c = (tipo_atual_decl == "bool") ? "int" : (tipo_atual_decl == "string") ? "char*" : tipo_atual_decl;
                         
                         int total = stoi($3.label) * stoi($6.label);
-                        declaracoes += "\t" + tipo_c + " " + temp + "[" + to_string(total) + "];\n";
+                        add_declaracao( "\t" + tipo_c + " " + temp + "[" + to_string(total) + "];\n");
                         
                         int limite = stoi($3.label) * stoi($6.label);
                         string values = $10.label;
@@ -1023,7 +1025,7 @@ VARIAVEL    : TK_ID
                             }
                             string val = values.substr(0, pos);
                             string t_ptr = gentempcode();
-                            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                            add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
                             traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
                             traducao_init += "\t*" + t_ptr + " = " + val + ";\n";
                             values.erase(0, pos + 1);
@@ -1034,7 +1036,7 @@ VARIAVEL    : TK_ID
                                 yyerror("Erro Semantico: A matriz passou do limite de itens declarados!");
                             } else {
                                 string t_ptr = gentempcode();
-                                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                                add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
                                 traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
                                 traducao_init += "\t*" + t_ptr + " = " + values + ";\n";
                             }
@@ -1054,7 +1056,7 @@ VARIAVEL    : TK_ID
                         tabela_escopos.back()[$1.label] = {temp, tipo_atual_decl, "1D"};
                         string tipo_c = (tipo_atual_decl == "bool") ? "int" : (tipo_atual_decl == "string") ? "char*" : tipo_atual_decl;
                         
-                        declaracoes += "\t" + tipo_c + " " + temp + "[" + $3.label + "];\n";
+                        add_declaracao( "\t" + tipo_c + " " + temp + "[" + $3.label + "];\n");
                         
                         int limite = stoi($3.label);
                         string values = $7.label;
@@ -1068,7 +1070,7 @@ VARIAVEL    : TK_ID
                             }
                             string val = values.substr(0, pos);
                             string t_ptr = gentempcode();
-                            declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                            add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
                             traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
                             traducao_init += "\t*" + t_ptr + " = " + val + ";\n";
                             values.erase(0, pos + 1);
@@ -1079,7 +1081,7 @@ VARIAVEL    : TK_ID
                                 yyerror("Erro Semantico: O vetor passou do limite de itens declarados!");
                             } else {
                                 string t_ptr = gentempcode();
-                                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                                add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
                                 traducao_init += "\t" + t_ptr + " = " + temp + " + " + to_string(idx) + ";\n";
                                 traducao_init += "\t*" + t_ptr + " = " + values + ";\n";
                             }
@@ -1101,10 +1103,10 @@ VARIAVEL    : TK_ID
 						string temp_cond = gentempcode();
 						string label_skip = gen_label();
 						
-						declaracoes += "\tint " + temp_len + ";\n";
-						declaracoes += "\tint " + temp_soma + ";\n";
-						declaracoes += "\tvoid* " + temp_malloc + ";\n";
-						declaracoes += "\tint " + temp_cond + ";\n";
+						add_declaracao( "\tint " + temp_len + ";\n");
+						add_declaracao( "\tint " + temp_soma + ";\n");
+						add_declaracao( "\tvoid* " + temp_malloc + ";\n");
+						add_declaracao( "\tint " + temp_cond + ";\n");
 						
 						$$.traducao = $3.traducao + "\t" + temp_cond + " = " + $$.label + " != NULL;\n"
 						+ "\tif (!" + temp_cond + ") goto " + label_skip + ";\n" 
@@ -1149,7 +1151,7 @@ P       	: TK_NUM
         	{
         		$$.label = gentempcode();
         		$$.tipo = $1.tipo;
-        		declaracoes += "\t" + $$.tipo + " " + $$.label + ";\n";
+        		add_declaracao( "\t" + $$.tipo + " " + $$.label + ";\n");
         		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
         	| TK_ID
@@ -1174,10 +1176,10 @@ P       	: TK_NUM
             	$$.label = gentempcode();
             
             	string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
-            	declaracoes += "\t" + tipo_c + " " + $$.label + ";\n";
+            	add_declaracao( "\t" + tipo_c + " " + $$.label + ";\n");
                 
                 string t_ptr = gentempcode();
-                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
             
             	$$.traducao = $3.traducao + "\t" + t_ptr + " = " + info.temp + " + " + $3.label + ";\n" 
                             + "\t" + $$.label + " = *" + t_ptr + ";\n";
@@ -1191,14 +1193,14 @@ P       	: TK_NUM
             	$$.label = gentempcode();
             
             	string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
-            	declaracoes += "\t" + tipo_c + " " + $$.label + ";\n";
+            	add_declaracao( "\t" + tipo_c + " " + $$.label + ";\n");
             
                 string t_mult = gentempcode();
                 string t_soma = gentempcode();
                 string t_ptr = gentempcode();
-                declaracoes += "\tint " + t_mult + ";\n";
-                declaracoes += "\tint " + t_soma + ";\n";
-                declaracoes += "\t" + tipo_c + " *" + t_ptr + ";\n";
+                add_declaracao( "\tint " + t_mult + ";\n");
+                add_declaracao( "\tint " + t_soma + ";\n");
+                add_declaracao( "\t" + tipo_c + " *" + t_ptr + ";\n");
                 
                 string calc = "\t" + t_mult + " = " + $3.label + " * " + info.dim + ";\n" +
                               "\t" + t_soma + " = " + t_mult + " + " + $6.label + ";\n" +
@@ -1239,31 +1241,36 @@ P       	: TK_NUM
                     }
 
                 	$$.tipo = info_func.tipo_retorno;
-                	$$.label = gentempcode();
-                	string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
-                	declaracoes += "\t" + tipo_c + " " + $$.label + ";\n";
-                	$$.traducao = $3.traducao + "\t" + $$.label + " = " + $1.label + "(" + $3.label + ");\n";
+                	if ($$.tipo == "void") {
+                	    $$.label = "";
+                	    $$.traducao = $3.traducao + "\t" + $1.label + "(" + $3.label + ");\n";
+                	} else {
+                	    $$.label = gentempcode();
+                	    string tipo_c = ($$.tipo == "bool") ? "int" : ($$.tipo == "string") ? "char*" : $$.tipo;
+                	    add_declaracao( "\t" + tipo_c + " " + $$.label + ";\n");
+                	    $$.traducao = $3.traducao + "\t" + $$.label + " = " + $1.label + "(" + $3.label + ");\n";
+                	}
             	}
         	}
         	| TK_CHARLITERAL
         	{
         		$$.label = gentempcode();
         		$$.tipo = "char";
-				declaracoes += "\tchar " + $$.label + ";\n";
+				add_declaracao( "\tchar " + $$.label + ";\n");
         		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
         	| TK_BOOLLIT
         	{
         		$$.label = gentempcode();
         		$$.tipo = "bool";
-				declaracoes += "\tint " + $$.label + ";\n";
+				add_declaracao( "\tint " + $$.label + ";\n");
         		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
         	}
 			| TK_STRINGLITERAL
         	{
         		$$.label = gentempcode();
         		$$.tipo = "string";
-				declaracoes += "\tchar* " + $$.label + ";\n";
+				add_declaracao( "\tchar* " + $$.label + ";\n");
         		$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
       		}
         	| '(' E ')'
@@ -1277,7 +1284,7 @@ P       	: TK_NUM
         		if ($2.tipo == "bool"){
         			$$.label = gentempcode();
         			$$.tipo = "bool";
-        			declaracoes += "\tint " + $$.label + ";\n";
+        			add_declaracao( "\tint " + $$.label + ";\n");
         			$$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n";
         		}
         		else{
@@ -1290,7 +1297,7 @@ P       	: TK_NUM
         			$$.label = gentempcode();
         			$$.tipo = $2.tipo;
         			string tipo_c = ($$.tipo == "float") ? "float" : "int";
-        			declaracoes += "\t" + tipo_c + " " + $$.label + ";\n";
+        			add_declaracao( "\t" + tipo_c + " " + $$.label + ";\n");
         			$$.traducao = $2.traducao + "\t" + $$.label + " = -" + $2.label + ";\n";
         		}
         		else{
@@ -1307,10 +1314,10 @@ P       	: TK_NUM
 				string tipo_destino_c = ($2.label == "bool") ? "int" : ($2.label == "string") ? "char*" : $2.label;
 
 				string temp_original = gentempcode(); // Cria temporária para o tipo original
-				declaracoes += "\t" + tipo_origem_c + " " + temp_original + ";\n"; // Declara a temporária original com o tipo do E
+				add_declaracao( "\t" + tipo_origem_c + " " + temp_original + ";\n"); // Declara a temporária original com o tipo do E
 
 				string temp_cast = gentempcode(); // Cria temporária para o resultado do cast
-				declaracoes += "\t" + tipo_destino_c + " " + temp_cast + ";\n"; // Declara a temporária cast com o tipo do cast
+				add_declaracao( "\t" + tipo_destino_c + " " + temp_cast + ";\n"); // Declara a temporária cast com o tipo do cast
 
 				$$.label = temp_cast; 
 				$$.tipo = $2.label;
@@ -1436,11 +1443,20 @@ void yyerror(string MSG)
 	lista_erros.push_back("Erro na linha " + to_string(linha) + ": " + MSG);
 }
 
+void add_declaracao(string dec) {
+    if (nivel_escopo == 0) {
+        declaracoes_globais += dec;
+    } else {
+        add_declaracao( dec);
+    }
+}
+
+
 //funcao que fica responsável por fazer o cast
 string castGerar(string cast_tipo, string label, string& cast_traducao){
 	string temp = gentempcode(); 
 	//gera a string temporaria q vai receber o resultado do cast
-	declaracoes += "\t" + cast_tipo + " " + temp + ";\n";
+	add_declaracao( "\t" + cast_tipo + " " + temp + ";\n");
 	//faz a declaracao dessa nova string temporaria
 	cast_traducao += "\t" + temp + " = " + "(" + cast_tipo + ") " + label + ";\n";
 	 //faz a traducao para p codigo em c da nova string temporaria. Ex: t2 = (float)t1;
@@ -1460,12 +1476,12 @@ void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op
         dd.label = gentempcode();
         dd.tipo = "string";
 
-        declaracoes += "\tint " + temp_len1 + ";\n";
-        declaracoes += "\tint " + temp_len2 + ";\n";
-        declaracoes += "\tint " + temp_soma_len + ";\n";
-        declaracoes += "\tint " + temp_total + ";\n";
-        declaracoes += "\tvoid* " + temp_malloc + ";\n";
-        declaracoes += "\tchar* " + dd.label + " = NULL;\n";
+        add_declaracao( "\tint " + temp_len1 + ";\n");
+        add_declaracao( "\tint " + temp_len2 + ";\n");
+        add_declaracao( "\tint " + temp_soma_len + ";\n");
+        add_declaracao( "\tint " + temp_total + ";\n");
+        add_declaracao( "\tvoid* " + temp_malloc + ";\n");
+        add_declaracao( "\tchar* " + dd.label + " = NULL;\n");
 
         dd.traducao = d1.traducao + d3.traducao +
                       "\t" + temp_len1 + " = tamString(" + d1.label + ");\n" +
@@ -1498,10 +1514,10 @@ void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op
 			d3.label = castGerar(cast.cast_dir, d3.label, cast_traducao); 
 		}
 		if(op_tipo == "arit"){
-			declaracoes += "\t" + dd.tipo + " " + dd.label + ";\n";	
+			add_declaracao( "\t" + dd.tipo + " " + dd.label + ";\n");	
 		}
 		else{
-			declaracoes += "\tint " + dd.label + ";\n";	
+			add_declaracao( "\tint " + dd.label + ";\n");	
 			//tratamento especial para o tipo bool pq ele n existe em C
 		}
 		
@@ -1511,7 +1527,7 @@ void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op
 	else if(d1.tipo == "string" && d3.tipo == "string" && (op == "==" || op == "!=")){
 		dd.tipo = "bool";
 		dd.label = gentempcode();
-		declaracoes += "\tint " + dd.label + ";\n";
+		add_declaracao( "\tint " + dd.label + ";\n");
 		if (op == "==") {
 			dd.traducao = d1.traducao + d3.traducao + "\t" + dd.label + " = comparaString( " + d1.label + ", " + d3.label + " );\n";
 		} else {
@@ -1521,7 +1537,7 @@ void operacoes(atributos& dd, atributos& d1, atributos& d3, string op, string op
 	else if(d1.tipo == "bool" && d3.tipo == "bool" && (op == "==" || op == "!=")){
 		dd.tipo = "bool";
 		dd.label = gentempcode();
-		declaracoes += "\tint " + dd.label + ";\n";
+		add_declaracao( "\tint " + dd.label + ";\n");
 		dd.traducao = d1.traducao + d3.traducao + "\t" + dd.label + " = " + d1.label + " " + op + " " + d3.label + ";\n";
 	}
 	else{
@@ -1542,7 +1558,7 @@ void op_logicos(atributos& dd, atributos& d1, atributos& d3, string op){
 	if (d1.tipo == "bool" && d3.tipo == "bool"){
 		dd.label = gentempcode();
 		dd.tipo = "bool";
-		declaracoes += "\tint " + dd.label + ";\n";
+		add_declaracao( "\tint " + dd.label + ";\n");
 		dd.traducao = d1.traducao + d3.traducao + 
 		"\t" + dd.label + " = " + d1.label + " " + op + " " + d3.label + ";\n";
 	}
@@ -1570,9 +1586,9 @@ void declarar_variavel(string nome, string tipo){
 		string tipo_c = (tipo == "bool") ? "int" : (tipo == "string") ? "char*" : tipo;
 
 		if (tipo == "string") 
-			declaracoes += "\t" + tipo_c + " " + temp + " = NULL;\n";
+			add_declaracao( "\t" + tipo_c + " " + temp + " = NULL;\n");
 		else 
-			declaracoes += "\t" + tipo_c + " " + temp + ";\n";
+			add_declaracao( "\t" + tipo_c + " " + temp + ";\n");
 	}
 
 }
@@ -1597,7 +1613,7 @@ void declarar_vetor(string nome, string tipo, string tamanho){
             tabela_escopos.back()[nome] = {temp, tipo, "1D"};
             string tipo_c = (tipo == "bool") ? "int" : (tipo == "string") ? "char*" : tipo;
 
-            declaracoes += "\t" + tipo_c + " " + temp + "[" + tamanho + "];\n";
+            add_declaracao( "\t" + tipo_c + " " + temp + "[" + tamanho + "];\n");
         }
 }
 
@@ -1610,7 +1626,7 @@ void declarar_matriz(string nome, string tipo, string tam1, string tam2){
             string tipo_c = (tipo == "bool") ? "int" : (tipo == "string") ? "char*" : tipo;
 
             int total = stoi(tam1) * stoi(tam2);
-            declaracoes += "\t" + tipo_c + " " + temp + "[" + to_string(total) + "];\n";
+            add_declaracao( "\t" + tipo_c + " " + temp + "[" + to_string(total) + "];\n");
         }
 }
 
@@ -1640,11 +1656,11 @@ void atribuicao_composta(atributos& res, atributos& id, atributos& expressao, st
             string temp_cond = gentempcode();
             string label_skip = gen_label();
             
-            declaracoes += "\tint " + temp_len1 + ";\n";
-            declaracoes += "\tint " + temp_len2 + ";\n";
-            declaracoes += "\tint " + temp_soma + ";\n";
-            declaracoes += "\tvoid* " + temp_malloc + ";\n";
-            declaracoes += "\tint " + temp_cond + ";\n";
+            add_declaracao( "\tint " + temp_len1 + ";\n");
+            add_declaracao( "\tint " + temp_len2 + ";\n");
+            add_declaracao( "\tint " + temp_soma + ";\n");
+            add_declaracao( "\tvoid* " + temp_malloc + ";\n");
+            add_declaracao( "\tint " + temp_cond + ";\n");
             
             string operacao = "\t" + temp_len1 + " = tamString(" + res.label + ");\n" +
                               "\t" + temp_len2 + " = tamString(" + expressao.label + ");\n" +
@@ -1666,7 +1682,7 @@ void atribuicao_composta(atributos& res, atributos& id, atributos& expressao, st
         //  Cria variável temporária para a operação
         string temp_operacao = gentempcode();
         string tipo_c = (info.tipo == "float") ? "float" : "int";
-        declaracoes += "\t" + tipo_c + " " + temp_operacao + ";\n";
+        add_declaracao( "\t" + tipo_c + " " + temp_operacao + ";\n");
 
         // Monta a string da operação matemática (temp = var OP expressao)
         string operacao = "\t" + temp_operacao + " = " + res.label + " " + operador + " " + expressao.label + ";\n";
@@ -1683,7 +1699,7 @@ void incremento_unario(atributos& res, atributos& id, string operador, bool eh_p
     res.tipo = info.tipo;
     res.label = gentempcode();
     string tipo_c = (info.tipo == "float") ? "float" : "int";
-    declaracoes += "\t" + tipo_c + " " + res.label + ";\n";
+    add_declaracao( "\t" + tipo_c + " " + res.label + ";\n");
 
     if (eh_pre) {
         // Pré-incremento/decremento: faz a conta e depois passa pra temporária
